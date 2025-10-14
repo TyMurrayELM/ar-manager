@@ -488,43 +488,47 @@ ar@encorelm.com`;
                       )}
                     </td>
                     <td className="px-4 py-4">
-                      <button
-                        onClick={() => onToggleGhosting(invoice.invoice_id, invoice.isGhosting || false)}
-                        className={`p-1 rounded transition-colors ${
-                          invoice.isGhosting ? 'bg-purple-100' : ''
-                        }`}
-                        title={invoice.isGhosting ? "Client is ghosting - click to unmark" : "Mark client as ghosting"}
-                      >
-                        <Ghost 
-                          className={`w-5 h-5 ${
-                            invoice.isGhosting 
-                              ? 'text-gray-900' 
-                              : 'text-gray-300 hover:text-gray-400'
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => onToggleGhosting(invoice.invoice_id, invoice.isGhosting || false)}
+                          className={`p-1 rounded transition-colors ${
+                            invoice.isGhosting ? 'bg-purple-100' : ''
                           }`}
-                        />
-                      </button>
+                          title={invoice.isGhosting ? "Client is ghosting - click to unmark" : "Mark client as ghosting"}
+                        >
+                          <Ghost 
+                            className={`w-5 h-5 ${
+                              invoice.isGhosting 
+                                ? 'text-gray-900' 
+                                : 'text-gray-300 hover:text-gray-400'
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
-                      <button
-                        onClick={() => onToggleTerminated(invoice.invoice_id, invoice.isTerminated || false)}
-                        className={`p-1 rounded transition-colors ${
-                          invoice.isTerminated ? 'bg-red-100' : ''
-                        }`}
-                        title={invoice.isTerminated ? "Property is terminated - click to unmark" : "Mark property as terminated"}
-                      >
-                        <svg 
-                          className={`w-5 h-5 ${
-                            invoice.isTerminated 
-                              ? 'text-red-600' 
-                              : 'text-gray-300 hover:text-gray-400'
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => onToggleTerminated(invoice.invoice_id, invoice.isTerminated || false)}
+                          className={`p-1 rounded transition-colors ${
+                            invoice.isTerminated ? 'bg-red-100' : ''
                           }`}
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
+                          title={invoice.isTerminated ? "Property is terminated - click to unmark" : "Mark property as terminated"}
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                          <svg 
+                            className={`w-5 h-5 ${
+                              invoice.isTerminated 
+                                ? 'text-red-600' 
+                                : 'text-gray-300 hover:text-gray-400'
+                            }`}
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex gap-2">
