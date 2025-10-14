@@ -1,4 +1,4 @@
-import { Clock, Pencil, Calendar } from 'lucide-react';
+import { Clock, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { FollowUp } from '@/types';
 import { formatCurrency } from '@/lib/utils';

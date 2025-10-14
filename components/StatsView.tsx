@@ -45,12 +45,16 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
   const companies = ['all', ...new Set(regionFilteredInvoices.map(inv => inv.companyName).filter(Boolean))].sort((a, b) => {
     if (a === 'all') return -1;
     if (b === 'all') return 1;
+    if (!a) return 1;
+    if (!b) return -1;
     return a.localeCompare(b);
   });
 
   const properties = ['all', ...new Set(regionFilteredInvoices.map(inv => inv.propertyName).filter(Boolean))].sort((a, b) => {
     if (a === 'all') return -1;
     if (b === 'all') return 1;
+    if (!a) return 1;
+    if (!b) return -1;
     return a.localeCompare(b);
   });
 
@@ -202,8 +206,9 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
     companyLayers.push({ company: 'Other', color: colors[10], points: otherPoints });
     
     // Add each company as a layer
-    [...topCompanies].reverse().forEach((company, idx) => {
-      const actualIndex = topCompanies.length - 1 - idx;
+    [...topCompanies].reverse().forEach((company) => {
+      const actualIndex = topCompanies.length - 1 - topCompanies.reverse().indexOf(company);
+      topCompanies.reverse(); // reverse back
       const points = categories.map((cat, catIndex) => {
         const x = leftMargin + catIndex * xStep;
         const value = company[cat.key as keyof typeof company] as number;
@@ -375,8 +380,9 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
         
         {/* Legend */}
         <div className="mt-6 flex flex-wrap gap-4 justify-center">
-          {[...topCompanies].reverse().map((company, idx) => {
-            const actualIndex = topCompanies.length - 1 - idx;
+          {[...topCompanies].reverse().map((company) => {
+            const actualIndex = topCompanies.length - 1 - topCompanies.reverse().indexOf(company);
+            topCompanies.reverse(); // reverse back
             return (
               <div key={company.company} className="flex items-center gap-2">
                 <div 
@@ -472,7 +478,7 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {statsByDollars.slice(0, 20).map((stat, index) => (
+              {statsByDollars.slice(0, 20).map((stat) => (
                 <tr key={stat.company} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm text-gray-900 font-medium">
                     <div className="flex items-center gap-2">
