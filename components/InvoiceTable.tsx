@@ -16,12 +16,14 @@ interface InvoiceTableProps {
   selectedGhosting: 'all' | 'ghosting' | 'not-ghosting';
   selectedTerminated: 'all' | 'terminated' | 'not-terminated';
   selectedPaymentStatus: string;
+  showCurrentInvoices: boolean;
   onBranchChange: (branch: string) => void;
   onCompanyChange: (company: string) => void;
   onPropertyChange: (property: string) => void;
   onGhostingChange: (ghosting: 'all' | 'ghosting' | 'not-ghosting') => void;
   onTerminatedChange: (terminated: 'all' | 'terminated' | 'not-terminated') => void;
   onPaymentStatusChange: (status: string) => void;
+  onShowCurrentInvoicesChange: (show: boolean) => void;
   onAddNote: (invoice: Invoice) => void;
   onAddFollowUp: (invoice: Invoice) => void;
   onEditNote: (noteId: number, noteText: string) => void;
@@ -68,12 +70,14 @@ export default function InvoiceTable({
   selectedGhosting,
   selectedTerminated,
   selectedPaymentStatus,
+  showCurrentInvoices,
   onBranchChange,
   onCompanyChange,
   onPropertyChange,
   onGhostingChange,
   onTerminatedChange,
   onPaymentStatusChange,
+  onShowCurrentInvoicesChange,
   onAddNote,
   onAddFollowUp,
   onEditNote,
@@ -392,6 +396,17 @@ ar@encorelm.com`;
                 <option value="terminated">TRUE</option>
                 <option value="not-terminated">FALSE</option>
               </select>
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showCurrentInvoices}
+                  onChange={(e) => onShowCurrentInvoicesChange(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700 font-medium">Show Current</span>
+              </label>
             </div>
           </div>
           <div className="text-sm text-gray-600">

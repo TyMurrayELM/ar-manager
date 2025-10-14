@@ -21,6 +21,7 @@ export function useInvoices() {
   const [selectedGhosting, setSelectedGhosting] = useState<'all' | 'ghosting' | 'not-ghosting'>('all');
   const [selectedTerminated, setSelectedTerminated] = useState<'all' | 'terminated' | 'not-terminated'>('all');
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all');
+  const [showCurrentInvoices, setShowCurrentInvoices] = useState(true);
 
   useEffect(() => {
     loadInvoiceDataFromSupabase();
@@ -657,6 +658,10 @@ export function useInvoices() {
   }).filter(inv => {
     if (selectedPaymentStatus === 'all') return true;
     return inv.paymentStatus === selectedPaymentStatus;
+  }).filter(inv => {
+    // Filter out current invoices if toggle is off
+    if (!showCurrentInvoices && inv.pastDue <= 0) return false;
+    return true;
   });
 
   const bucketFilteredInvoices = invoices.filter(inv => {
@@ -1118,6 +1123,7 @@ export function useInvoices() {
     selectedGhosting,
     selectedTerminated,
     selectedPaymentStatus,
+    showCurrentInvoices,
     setSelectedBucket,
     setSelectedBranch,
     setSelectedCompany,
@@ -1126,6 +1132,7 @@ export function useInvoices() {
     setSelectedGhosting,
     setSelectedTerminated,
     setSelectedPaymentStatus,
+    setShowCurrentInvoices,
     syncFromAspire,
     loadInvoiceData: loadInvoiceDataFromSupabase,
     addNote,
