@@ -138,12 +138,6 @@ export default function ARManagementApp() {
 
         {activeTab === 'invoices' ? (
           <>
-            <SummaryCards 
-              buckets={buckets}
-              selectedBucket={selectedBucket}
-              onBucketSelect={setSelectedBucket}
-            />
-
             <div className="mb-6">
               <button
                 onClick={() => setShowPieCharts(!showPieCharts)}
@@ -165,6 +159,12 @@ export default function ARManagementApp() {
                 />
               )}
             </div>
+
+            <SummaryCards 
+              buckets={buckets}
+              selectedBucket={selectedBucket}
+              onBucketSelect={setSelectedBucket}
+            />
 
             <InvoiceTable 
               invoices={filteredInvoices}
