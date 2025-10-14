@@ -187,6 +187,7 @@ export function useInvoices() {
       
       console.log('Attempting to fetch from Supabase...');
       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let allData: any[] = [];
       let start = 0;
       const batchSize = 1000;
@@ -341,6 +342,7 @@ export function useInvoices() {
         console.warn('Could not load follow-ups for invoices:', followUpsError);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const notesByInvoice: Record<number, any[]> = {};
       notesData?.forEach(note => {
         if (!notesByInvoice[note.invoice_id]) {
@@ -349,6 +351,7 @@ export function useInvoices() {
         notesByInvoice[note.invoice_id].push(note);
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const followUpsByInvoice: Record<number, any[]> = {};
       followUpsData?.forEach(followUp => {
         if (!followUpsByInvoice[followUp.invoice_id]) {
