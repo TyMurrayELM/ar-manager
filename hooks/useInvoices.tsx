@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { SAMPLE_INVOICES } from '@/lib/constants';
 import { Invoice, FollowUp, BucketSummary, Bucket, MonthlySnapshot, CompanyBreakdown, PaymentStatus } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -20,6 +19,7 @@ export function useInvoices() {
   const [selectedProperty, setSelectedProperty] = useState('all');
   const [selectedRegion, setSelectedRegion] = useState<'all' | 'phoenix' | 'las-vegas'>('all');
   const [selectedGhosting, setSelectedGhosting] = useState<'all' | 'ghosting' | 'not-ghosting'>('all');
+  const [selectedTerminated, setSelectedTerminated] = useState<'all' | 'terminated' | 'not-terminated'>('all');
 
   useEffect(() => {
     loadInvoiceDataFromSupabase();
@@ -179,9 +179,8 @@ export function useInvoices() {
       console.log('Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
       
       if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        console.warn('⚠️ Supabase URL missing! Check .env.local file');
-        console.warn('Using sample data instead...');
-        setInvoices(SAMPLE_INVOICES);
+        console.error('⚠️ Supabase URL missing! Check .env.local file');
+        setInvoices([]);
         setLoading(false);
         return;
       }
@@ -202,12 +201,11 @@ export function useInvoices() {
 
         if (error) {
           console.error('Supabase Error Details:', JSON.stringify(error, null, 2));
-          console.warn('Common issues:');
-          console.warn('1. Table name might be wrong (check it\'s exactly: ar_aging_invoices)');
-          console.warn('2. RLS policies might be blocking access');
-          console.warn('3. API credentials might be incorrect');
-          console.warn('Falling back to sample data...');
-          setInvoices(SAMPLE_INVOICES);
+          console.error('Common issues:');
+          console.error('1. Table name might be wrong (check it\'s exactly: ar_aging_invoices)');
+          console.error('2. RLS policies might be blocking access');
+          console.error('3. API credentials might be incorrect');
+          setInvoices([]);
           setLoading(false);
           return;
         }
@@ -233,9 +231,8 @@ export function useInvoices() {
       console.log('Data count:', allData.length);
 
       if (!allData || allData.length === 0) {
-        console.warn('⚠️ No data returned from Supabase. Table might be empty.');
-        console.warn('Using sample data instead...');
-        setInvoices(SAMPLE_INVOICES);
+        console.warn('⚠️ No data returned from Supabase. Table might be empty. Run Aspire sync to populate data.');
+        setInvoices([]);
         setLoading(false);
         return;
       }
@@ -267,6 +264,7 @@ export function useInvoices() {
         comments: row.comments || '',
         followUpCategory: row.follow_up_category,
         isGhosting: row.is_ghosting || false,
+        isTerminated: row.is_terminated || false,
         paymentStatus: row.payment_status || 'No Follow Up',
         createdAt: row.created_at,
         updatedAt: row.updated_at,
@@ -280,8 +278,7 @@ export function useInvoices() {
       setLoading(false);
     } catch (error) {
       console.error('Caught error during load:', error);
-      console.warn('Using sample data due to error...');
-      setInvoices(SAMPLE_INVOICES);
+      setInvoices([]);
       setLoading(false);
     }
   };
@@ -648,6 +645,11 @@ export function useInvoices() {
     if (selectedGhosting === 'ghosting') return inv.isGhosting === true;
     if (selectedGhosting === 'not-ghosting') return inv.isGhosting !== true;
     return true;
+  }).filter(inv => {
+    if (selectedTerminated === 'all') return true;
+    if (selectedTerminated === 'terminated') return inv.isTerminated === true;
+    if (selectedTerminated === 'not-terminated') return inv.isTerminated !== true;
+    return true;
   });
 
   const bucketFilteredInvoices = invoices.filter(inv => {
@@ -989,6 +991,34 @@ export function useInvoices() {
     }
   };
 
+  const toggleTerminated = async (invoiceId: number, currentStatus: boolean) => {
+    try {
+      const newStatus = !currentStatus;
+      
+      const { error } = await supabase
+        .from('ar_aging_invoices')
+        .update({ is_terminated: newStatus })
+        .eq('invoice_id', invoiceId);
+
+      if (error) {
+        console.error('Error toggling terminated status:', error);
+        alert('Failed to update terminated status. Please try again.');
+        return;
+      }
+
+      setInvoices(prev => prev.map(inv => 
+        inv.invoice_id === invoiceId 
+          ? { ...inv, isTerminated: newStatus }
+          : inv
+      ));
+
+      console.log('✅ Terminated status updated');
+    } catch (error) {
+      console.error('Error in toggleTerminated:', error);
+      alert('Failed to update terminated status. Please try again.');
+    }
+  };
+
   const updatePaymentStatus = async (invoiceId: number, status: PaymentStatus) => {
     try {
       const { error } = await supabase
@@ -1033,12 +1063,14 @@ export function useInvoices() {
     selectedProperty,
     selectedRegion,
     selectedGhosting,
+    selectedTerminated,
     setSelectedBucket,
     setSelectedBranch,
     setSelectedCompany,
     setSelectedProperty,
     setSelectedRegion,
     setSelectedGhosting,
+    setSelectedTerminated,
     syncFromAspire,
     loadInvoiceData: loadInvoiceDataFromSupabase,
     addNote,
@@ -1049,6 +1081,7 @@ export function useInvoices() {
     deleteFollowUp,
     editFollowUp,
     toggleGhosting,
+    toggleTerminated,
     updatePaymentStatus,
     createSnapshot,
     loadSnapshots

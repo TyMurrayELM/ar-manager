@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, MessageSquare, Pencil, Trash2, Calendar, Fil
 import { Invoice, InvoiceNote, HistoryItem, PaymentStatus } from '@/types';
 import { formatCurrency, formatDate, getBranchColor } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface InvoiceTableProps {
   invoices: Invoice[];
@@ -13,15 +14,18 @@ interface InvoiceTableProps {
   selectedCompany: string;
   selectedProperty: string;
   selectedGhosting: 'all' | 'ghosting' | 'not-ghosting';
+  selectedTerminated: 'all' | 'terminated' | 'not-terminated';
   onBranchChange: (branch: string) => void;
   onCompanyChange: (company: string) => void;
   onPropertyChange: (property: string) => void;
   onGhostingChange: (ghosting: 'all' | 'ghosting' | 'not-ghosting') => void;
+  onTerminatedChange: (terminated: 'all' | 'terminated' | 'not-terminated') => void;
   onAddNote: (invoice: Invoice) => void;
   onAddFollowUp: (invoice: Invoice) => void;
   onEditNote: (noteId: number, noteText: string) => void;
   onDeleteNote: (noteId: number, invoiceId: number) => void;
   onToggleGhosting: (invoiceId: number, currentStatus: boolean) => void;
+  onToggleTerminated: (invoiceId: number, currentStatus: boolean) => void;
   onUpdatePaymentStatus: (invoiceId: number, status: PaymentStatus) => void;
 }
 
@@ -52,15 +56,18 @@ export default function InvoiceTable({
   selectedCompany,
   selectedProperty,
   selectedGhosting,
+  selectedTerminated,
   onBranchChange,
   onCompanyChange,
   onPropertyChange,
   onGhostingChange,
+  onTerminatedChange,
   onAddNote,
   onAddFollowUp,
   onEditNote,
   onDeleteNote,
   onToggleGhosting,
+  onToggleTerminated,
   onUpdatePaymentStatus
 }: InvoiceTableProps) {
   const { user } = useAuth();
@@ -69,6 +76,7 @@ export default function InvoiceTable({
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteText, setEditingNoteText] = useState('');
+  const [searchingInvoice, setSearchingInvoice] = useState<number | null>(null);
 
   const getInvoiceHistory = (invoice: Invoice): HistoryItem[] => {
     const history: HistoryItem[] = [];
@@ -146,33 +154,102 @@ export default function InvoiceTable({
     onUpdatePaymentStatus(invoiceId, newStatus as PaymentStatus);
   };
 
-  // Simplified email handler - no Drive search
-  const handleEmailClick = (invoice: Invoice) => {
-    const gmailUrl = createGmailLink(invoice);
-    
-    // Calculate center position for popup
-    const width = 800;
-    const height = 600;
-    
-    // Use dual offset method for better browser compatibility
-    const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX;
-    const dualScreenTop = window.screenTop !== undefined ? window.screenTop : window.screenY;
-    
-    const windowWidth = window.innerWidth ? window.innerWidth : document.documentElement.clientWidth ? document.documentElement.clientWidth : window.screen.width;
-    const windowHeight = window.innerHeight ? window.innerHeight : document.documentElement.clientHeight ? document.documentElement.clientHeight : window.screen.height;
-    
-    const left = ((windowWidth / 2) - (width / 2)) + dualScreenLeft;
-    const top = ((windowHeight / 2) - (height / 2)) + dualScreenTop;
-    
-    window.open(
-      gmailUrl, 
-      '_blank', 
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-    );
+  // Search for invoice in Google Drive
+  const findInvoiceInDrive = async (invoiceNumber: number): Promise<any | null> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token || !session?.provider_token) {
+        console.error('No session or provider token available');
+        return null;
+      }
+
+      const response = await fetch('/api/find-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ 
+          invoiceNumber,
+          providerToken: session.provider_token
+        })
+      });
+
+      // Check if response has content before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Invalid response type:', contentType);
+        return null;
+      }
+
+      // Get the response text first to check if it's empty
+      const text = await response.text();
+      if (!text || text.trim() === '') {
+        console.error('Empty response from API');
+        return null;
+      }
+
+      // Now parse the JSON
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Error parsing JSON:', parseError);
+        console.error('Response text:', text);
+        return null;
+      }
+
+      if (response.ok && result.found) {
+        console.log('✅ Invoice found in Drive:', result.fileName);
+        return result;
+      }
+
+      console.log('ℹ️ Invoice not found in Drive');
+      return null;
+    } catch (error) {
+      console.error('Error finding invoice:', error);
+      return null;
+    }
   };
 
-  // Create Gmail compose link with pre-populated email (no Drive link)
-  const createGmailLink = (invoice: Invoice) => {
+  // Handle Gmail button click with Drive search
+  const handleEmailClick = async (invoice: Invoice) => {
+    setSearchingInvoice(invoice.invoice_id);
+    
+    // Open Gmail immediately to avoid popup blocking
+    const gmailWindow = window.open('about:blank', '_blank', 'width=800,height=600,resizable=yes,scrollbars=yes');
+    
+    if (!gmailWindow) {
+      setSearchingInvoice(null);
+      alert('Please allow popups for this site to use the email feature.');
+      return;
+    }
+
+    try {
+      // Show loading message in the popup
+      gmailWindow.document.write('<html><body style="font-family: Arial; padding: 20px; text-align: center;"><h2>Preparing email...</h2><p>Searching for invoice in Google Drive...</p></body></html>');
+      
+      // Search for invoice in Drive
+      const driveFile = await findInvoiceInDrive(invoice.invoiceNumber);
+      
+      // Create Gmail link with or without Drive link
+      const gmailUrl = createGmailLink(invoice, driveFile);
+      
+      // Navigate the popup to Gmail
+      gmailWindow.location.href = gmailUrl;
+      
+    } catch (error) {
+      console.error('Error opening email:', error);
+      gmailWindow.close();
+      alert('Failed to prepare email. Please try again.');
+    } finally {
+      setSearchingInvoice(null);
+    }
+  };
+
+  // Create Gmail compose link with pre-populated email
+  const createGmailLink = (invoice: Invoice, driveFile: any = null) => {
     const to = invoice.primaryContactEmail || '';
     const cc = invoice.billingContactEmail || '';
     const subject = `Payment Follow-Up: Invoice #${invoice.invoiceNumber} | Encore Landscape Management`;
@@ -192,6 +269,7 @@ INVOICE DETAILS:
 • Original Due Date: ${formatDate(invoice.dueDate)}
 • Days Past Due: ${invoice.pastDue} days
 ${invoice.propertyName ? `• Property: ${invoice.propertyName}` : ''}
+${driveFile ? `\n🔎 View Invoice: ${driveFile.viewLink}` : ''}
 
 We wanted to check in on the status of this payment. If payment has already been sent, please let me know the check number or confirmation so we can update our records. If you have any questions or need any additional information about this invoice, please don't hesitate to reach out.
 
@@ -215,6 +293,8 @@ ar@encorelm.com`;
     
     // Add subject and body
     gmailUrl += `&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    console.log('Gmail URL created:', gmailUrl.substring(0, 100) + '...');
     
     return gmailUrl;
   };
@@ -276,6 +356,18 @@ ar@encorelm.com`;
                 <option value="not-ghosting">FALSE</option>
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">TERMINATED</label>
+              <select
+                value={selectedTerminated}
+                onChange={(e) => onTerminatedChange(e.target.value as 'all' | 'terminated' | 'not-terminated')}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All</option>
+                <option value="terminated">TRUE</option>
+                <option value="not-terminated">FALSE</option>
+              </select>
+            </div>
           </div>
           <div className="text-sm text-gray-600">
             Showing <span className="font-semibold">{invoices.length}</span> invoices
@@ -299,6 +391,7 @@ ar@encorelm.com`;
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Payment Status</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Activity</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Ghosting</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Terminated</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Actions</th>
             </tr>
           </thead>
@@ -404,15 +497,42 @@ ar@encorelm.com`;
                       </button>
                     </td>
                     <td className="px-4 py-4">
+                      <button
+                        onClick={() => onToggleTerminated(invoice.invoice_id, invoice.isTerminated || false)}
+                        className={`p-1 rounded transition-colors ${
+                          invoice.isTerminated ? 'bg-red-100' : ''
+                        }`}
+                        title={invoice.isTerminated ? "Property is terminated - click to unmark" : "Mark property as terminated"}
+                      >
+                        <svg 
+                          className={`w-5 h-5 ${
+                            invoice.isTerminated 
+                              ? 'text-red-600' 
+                              : 'text-gray-300 hover:text-gray-400'
+                          }`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </td>
+                    <td className="px-4 py-4">
                       <div className="flex gap-2">
-                        {/* Gmail Icon - simplified without Drive search */}
+                        {/* Gmail Icon */}
                         {invoice.primaryContactEmail && (
                           <button
                             onClick={() => handleEmailClick(invoice)}
-                            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                            disabled={searchingInvoice === invoice.invoice_id}
+                            className="p-1.5 hover:bg-gray-100 rounded transition-colors relative disabled:opacity-50"
                             title={`Email ${invoice.primaryContactName || 'contact'} about payment`}
                           >
-                            <img src="/gmail.png" alt="Email" className="w-5 h-5" />
+                            {searchingInvoice === invoice.invoice_id ? (
+                              <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                            ) : (
+                              <img src="/gmail.png" alt="Email" className="w-5 h-5" />
+                            )}
                           </button>
                         )}
                         <button
@@ -436,7 +556,7 @@ ar@encorelm.com`;
                   {/* Expanded Activity Row */}
                   {isExpanded && hasHistory && (
                     <tr className="bg-gray-50">
-                      <td colSpan={12} className="px-4 py-4">
+                      <td colSpan={13} className="px-4 py-4">
                         <div className="ml-8">
                           <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                             <MessageSquare className="w-4 h-4" />

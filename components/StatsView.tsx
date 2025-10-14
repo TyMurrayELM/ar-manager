@@ -23,6 +23,7 @@ interface CompanyStats {
   count_91_120: number;
   count_121_plus: number;
   hasGhosting: boolean;
+  hasTerminated: boolean;
 }
 
 export default function StatsView({ invoices, selectedRegion }: StatsViewProps) {
@@ -85,7 +86,8 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
       count_61_90: 0,
       count_91_120: 0,
       count_121_plus: 0,
-      hasGhosting: false
+      hasGhosting: false,
+      hasTerminated: false
     };
 
     existing.total += inv.amountRemaining;
@@ -106,6 +108,11 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
     // If any invoice for this company is ghosting, mark the company as having ghosting
     if (inv.isGhosting) {
       existing.hasGhosting = true;
+    }
+    
+    // If any invoice for this company is terminated, mark the company as having terminated
+    if (inv.isTerminated) {
+      existing.hasTerminated = true;
     }
 
     companyStatsMap.set(inv.companyName, existing);
@@ -488,6 +495,13 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
                           <Ghost className="w-4 h-4 text-gray-900" />
                         </div>
                       )}
+                      {stat.hasTerminated && (
+                        <div className="p-1 rounded bg-red-100">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">${Math.round(stat.total).toLocaleString()}</td>
@@ -530,6 +544,13 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
                       {stat.hasGhosting && (
                         <div className="p-1 rounded bg-purple-100">
                           <Ghost className="w-4 h-4 text-gray-900" />
+                        </div>
+                      )}
+                      {stat.hasTerminated && (
+                        <div className="p-1 rounded bg-red-100">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                         </div>
                       )}
                     </div>

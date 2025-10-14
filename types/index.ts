@@ -25,6 +25,7 @@ export interface Invoice {
   comments: string;
   followUpCategory?: number;
   isGhosting?: boolean;
+  isTerminated?: boolean;
   paymentStatus?: string;
   createdAt?: string;
   updatedAt?: string;
