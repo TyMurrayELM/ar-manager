@@ -1002,6 +1002,52 @@ export function useInvoices() {
     try {
       const newStatus = !currentStatus;
       
+      // Find the invoice to get the property name
+      const invoice = invoices.find(inv => inv.invoice_id === invoiceId);
+      if (!invoice) {
+        console.error('Invoice not found');
+        return;
+      }
+
+      const propertyName = invoice.propertyName;
+      
+      // If marking as terminated and property exists, ask about updating all invoices for that property
+      if (newStatus && propertyName) {
+        const propertyInvoices = invoices.filter(inv => inv.propertyName === propertyName);
+        
+        if (propertyInvoices.length > 1) {
+          const confirmMessage = `This property has ${propertyInvoices.length} invoices. Mark all invoices for "${propertyName}" as terminated?`;
+          const markAll = confirm(confirmMessage);
+          
+          if (markAll) {
+            // Update all invoices for this property
+            const invoiceIds = propertyInvoices.map(inv => inv.invoice_id);
+            
+            const { error } = await supabase
+              .from('ar_aging_invoices')
+              .update({ is_terminated: true })
+              .in('invoice_id', invoiceIds);
+
+            if (error) {
+              console.error('Error updating terminated status for property:', error);
+              alert('Failed to update terminated status. Please try again.');
+              return;
+            }
+
+            // Update state for all invoices in this property
+            setInvoices(prev => prev.map(inv => 
+              invoiceIds.includes(inv.invoice_id)
+                ? { ...inv, isTerminated: true }
+                : inv
+            ));
+
+            console.log(`✅ Marked ${propertyInvoices.length} invoices as terminated for property: ${propertyName}`);
+            return;
+          }
+        }
+      }
+      
+      // Single invoice update (either unmarking or user declined to update all)
       const { error } = await supabase
         .from('ar_aging_invoices')
         .update({ is_terminated: newStatus })
