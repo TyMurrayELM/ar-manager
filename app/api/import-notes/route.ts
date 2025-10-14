@@ -13,6 +13,28 @@ interface ImportNoteRow {
   follow_up_date?: string;
 }
 
+interface NoteToInsert {
+  invoice_id: number;
+  note_text: string;
+  created_by: string;
+  created_at: string;
+  is_follow_up: boolean;
+  follow_up_date: string | null;
+}
+
+interface FollowUpData {
+  invoice_id: number;
+  note_id: number;
+  invoice_number: string;
+  company_name: string;
+  property_name: string | null;
+  amount: number;
+  note_text: string;
+  follow_up_date: string;
+  created_by: string;
+  completed: boolean;
+}
+
 export async function POST(request: Request) {
   try {
     console.log('=== IMPORT NOTES API CALLED ===');
@@ -102,7 +124,7 @@ export async function POST(request: Request) {
     console.log(`Found ${invoiceMap.size} invoices in database`);
 
     // Process notes and prepare for insertion
-    const notesToInsert: any[] = [];
+    const notesToInsert: NoteToInsert[] = [];
     const errors: string[] = [];
     let skipped = 0;
 
@@ -122,7 +144,7 @@ export async function POST(request: Request) {
       }
 
       // Prepare note for insertion
-      const noteToInsert = {
+      const noteToInsert: NoteToInsert = {
         invoice_id: invoiceId,
         note_text: note.note_text.trim(),
         created_by: note.created_by || user.email || 'Imported from Google Sheets',
@@ -203,7 +225,7 @@ export async function POST(request: Request) {
             // FIXED: Changed from inv.id to inv.invoice_id
             const invoiceDetailsMap = new Map(invoiceDetails.map(inv => [inv.invoice_id, inv]));
             
-            const followUpsData = createdNotes.map(note => {
+            const followUpsData: FollowUpData[] = createdNotes.map(note => {
               const invoice = invoiceDetailsMap.get(note.invoice_id);
               if (!invoice) return null;
 
@@ -215,11 +237,11 @@ export async function POST(request: Request) {
                 property_name: invoice.property_name,
                 amount: invoice.amount_remaining,
                 note_text: note.note_text,
-                follow_up_date: note.follow_up_date,
+                follow_up_date: note.follow_up_date as string,
                 created_by: user.email || 'Imported from Google Sheets',
                 completed: false
               };
-            }).filter(Boolean);
+            }).filter((item): item is FollowUpData => item !== null);
 
             if (followUpsData.length > 0) {
               const { error: followUpError } = await supabaseAdmin
@@ -235,9 +257,10 @@ export async function POST(request: Request) {
             }
           }
         }
-      } catch (followUpError: any) {
+      } catch (followUpError: unknown) {
+        const errorMessage = followUpError instanceof Error ? followUpError.message : 'Unknown error';
         console.error('Error in follow-up creation:', followUpError);
-        errors.push(`Follow-up creation error: ${followUpError.message}`);
+        errors.push(`Follow-up creation error: ${errorMessage}`);
       }
     }
 
@@ -254,15 +277,18 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to import notes';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
     console.error('=== IMPORT ERROR ===');
     console.error('Error importing notes:', error);
-    console.error('Stack:', error.stack);
+    console.error('Stack:', errorStack);
     
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to import notes',
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorStack : undefined
       },
       { status: 500 }
     );

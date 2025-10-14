@@ -37,6 +37,32 @@ interface Contact {
   Email?: string;
 }
 
+interface ProcessedInvoiceData {
+  invoice_id: number;
+  invoice_number: string;
+  company_name: string;
+  property_name: string;
+  opportunity_name: string;
+  opportunity_number: string;
+  branch_name: string;
+  amount: number;
+  amount_remaining: number;
+  due_date: string | null;
+  invoice_date: string | null;
+  past_due: number;
+  aging_category: string;
+  aging_1_30: number;
+  aging_31_60: number;
+  aging_61_90: number;
+  aging_91_120: number;
+  aging_121_plus: number;
+  primary_contact_name: string;
+  primary_contact_email: string;
+  billing_contact_name: string;
+  billing_contact_email: string;
+  payment_terms_name: string;
+}
+
 export async function POST(request: Request) {
   try {
     // Get the authorization header
@@ -108,10 +134,11 @@ export async function POST(request: Request) {
       count: processedData.length
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sync from Aspire';
     console.error('Error syncing from Aspire:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to sync from Aspire' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
@@ -189,8 +216,9 @@ async function fetchInvoicesBatch(filter: string, pageSize: number): Promise<Asp
 
     return invoices;
 
-  } catch (error: any) {
-    console.error('Error fetching batch:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching batch:', errorMessage);
     return [];
   }
 }
@@ -311,13 +339,14 @@ async function fetchContactBatch(contactIds: number[]): Promise<Record<number, C
 
     return contactMap;
 
-  } catch (error: any) {
-    console.error('Error fetching contact batch:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching contact batch:', errorMessage);
     return {};
   }
 }
 
-function processInvoiceData(invoices: AspireInvoice[]) {
+function processInvoiceData(invoices: AspireInvoice[]): ProcessedInvoiceData[] {
   const today = new Date();
   const todayUTC = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -348,7 +377,7 @@ function processInvoiceData(invoices: AspireInvoice[]) {
         const dueDateUTC = Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate());
         const daysDiff = Math.floor((todayUTC - dueDateUTC) / (1000 * 60 * 60 * 24));
         pastDue = daysDiff > 0 ? daysDiff : 0;
-      } catch (e) {
+      } catch {
         pastDue = 0;
       }
     }
@@ -421,17 +450,18 @@ function calculateAging(dueDateString: string) {
       bucket,
       agingCategory
     };
-  } catch (e) {
-    console.error('Error calculating aging:', e);
+  } catch {
+    console.error('Error calculating aging');
     return { daysPastDue: 0, bucket: 'Current', agingCategory: 'Not Past Due' };
   }
 }
 
-async function writeToSupabase(supabase: any, data: any[]) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function writeToSupabase(supabase: any, data: ProcessedInvoiceData[]) {
   console.log(`Syncing ${data.length} invoices to Supabase...`);
 
   // Get all current invoice_ids from Aspire data
-  const aspireInvoiceIds = new Set(data.map((inv: any) => inv.invoice_id));
+  const aspireInvoiceIds = new Set(data.map((inv) => inv.invoice_id));
 
   // Check if we're in migration mode (existing records have NULL invoice_id)
   const { data: sampleCheck, error: checkError } = await supabase
@@ -456,13 +486,13 @@ async function writeToSupabase(supabase: any, data: any[]) {
     }
 
     // Find invoices to delete (exist in Supabase but not in Aspire data)
-    const invoicesToDelete = existingInvoices?.filter(
-      (inv: any) => inv.invoice_id && !aspireInvoiceIds.has(inv.invoice_id)
-    ) || [];
+    const invoicesToDelete = (existingInvoices || []).filter(
+      (inv: { invoice_id: number }) => inv.invoice_id && !aspireInvoiceIds.has(inv.invoice_id)
+    );
 
     if (invoicesToDelete.length > 0) {
       console.log(`Deleting ${invoicesToDelete.length} paid-off invoices`);
-      const idsToDelete = invoicesToDelete.map((inv: any) => inv.invoice_id);
+      const idsToDelete = invoicesToDelete.map((inv: { invoice_id: number }) => inv.invoice_id);
       const { error: deleteError } = await supabase
         .from('ar_aging_invoices')
         .delete()

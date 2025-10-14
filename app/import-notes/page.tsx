@@ -108,8 +108,9 @@ export default function ImportNotesPage() {
 
       setParsedNotes(notes);
       setError('');
-    } catch (err: any) {
-      setError(`Error parsing CSV: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(`Error parsing CSV: ${errorMessage}`);
       setParsedNotes([]);
     }
   };
@@ -149,8 +150,9 @@ export default function ImportNotesPage() {
       setResult(data);
       setCsvText('');
       setParsedNotes([]);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(errorMessage);
     } finally {
       setImporting(false);
     }
@@ -201,7 +203,7 @@ export default function ImportNotesPage() {
             12346,Waiting on approval from accounting<br/>
             12347,Payment received via check
           </div>
-          <p className="text-xs text-blue-700 mt-2">💡 Notes will be attributed to you ({user.email}) with today's date</p>
+          <p className="text-xs text-blue-700 mt-2">💡 Notes will be attributed to you ({user.email}) with today&apos;s date</p>
         </div>
 
         {/* Upload Area */}
