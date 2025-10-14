@@ -21,7 +21,7 @@ export function useInvoices() {
   const [selectedGhosting, setSelectedGhosting] = useState<'all' | 'ghosting' | 'not-ghosting'>('all');
   const [selectedTerminated, setSelectedTerminated] = useState<'all' | 'terminated' | 'not-terminated'>('all');
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all');
-  const [showCurrentInvoices, setShowCurrentInvoices] = useState(true);
+  const [showCurrentInvoices, setShowCurrentInvoices] = useState(false);
 
   useEffect(() => {
     loadInvoiceDataFromSupabase();
