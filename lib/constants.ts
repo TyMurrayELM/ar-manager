@@ -2,7 +2,7 @@ import { Invoice } from '@/types';
 
 export const SAMPLE_INVOICES: Invoice[] = [
   {
-    id: 1,
+    invoice_id: 1,
     invoiceNumber: 12345,
     companyName: 'Stevenson Warehouse',
     propertyName: 'Main Facility',
@@ -24,7 +24,7 @@ export const SAMPLE_INVOICES: Invoice[] = [
     notes: []
   },
   {
-    id: 2,
+    invoice_id: 2,
     invoiceNumber: 12344,
     companyName: 'Grayhawk HOA',
     propertyName: 'Community Center',
@@ -46,7 +46,7 @@ export const SAMPLE_INVOICES: Invoice[] = [
     notes: []
   },
   {
-    id: 3,
+    invoice_id: 3,
     invoiceNumber: 12343,
     companyName: 'Cameron East',
     propertyName: 'East Campus',
@@ -68,7 +68,7 @@ export const SAMPLE_INVOICES: Invoice[] = [
     notes: []
   },
   {
-    id: 4,
+    invoice_id: 4,
     invoiceNumber: 12342,
     companyName: 'Cameron West',
     propertyName: 'West Campus',
