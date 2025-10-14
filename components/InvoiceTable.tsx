@@ -329,7 +329,7 @@ ar@encorelm.com`;
                         <div className="text-xs text-gray-500">{invoice.primaryContactName}</div>
                       )}
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-700">
+                    <td className="px-4 py-4 text-sm text-gray-900 font-semibold">
                       {invoice.propertyName || '-'}
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-700">
