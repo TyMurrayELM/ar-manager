@@ -29,6 +29,14 @@ interface InvoiceTableProps {
   onUpdatePaymentStatus: (invoiceId: number, status: PaymentStatus) => void;
 }
 
+interface DriveFileResult {
+  found: boolean;
+  fileName?: string;
+  fileId?: string;
+  viewLink?: string;
+  downloadLink?: string;
+}
+
 const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string; colorClass: string }[] = [
   { value: 'No Follow Up', label: 'No Follow Up', colorClass: 'bg-gray-100 text-gray-700' },
   { value: 'No Contact', label: 'No Contact', colorClass: 'bg-red-100 text-red-700' },
@@ -155,7 +163,7 @@ export default function InvoiceTable({
   };
 
   // Search for invoice in Google Drive
-  const findInvoiceInDrive = async (invoiceNumber: number): Promise<any | null> => {
+  const findInvoiceInDrive = async (invoiceNumber: number): Promise<DriveFileResult | null> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -191,7 +199,7 @@ export default function InvoiceTable({
       }
 
       // Now parse the JSON
-      let result;
+      let result: DriveFileResult;
       try {
         result = JSON.parse(text);
       } catch (parseError) {
@@ -249,7 +257,7 @@ export default function InvoiceTable({
   };
 
   // Create Gmail compose link with pre-populated email
-  const createGmailLink = (invoice: Invoice, driveFile: any = null) => {
+  const createGmailLink = (invoice: Invoice, driveFile: DriveFileResult | null = null) => {
     const to = invoice.primaryContactEmail || '';
     const cc = invoice.billingContactEmail || '';
     const subject = `Payment Follow-Up: Invoice #${invoice.invoiceNumber} | Encore Landscape Management`;
