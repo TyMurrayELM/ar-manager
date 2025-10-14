@@ -15,11 +15,13 @@ interface InvoiceTableProps {
   selectedProperty: string;
   selectedGhosting: 'all' | 'ghosting' | 'not-ghosting';
   selectedTerminated: 'all' | 'terminated' | 'not-terminated';
+  selectedPaymentStatus: string;
   onBranchChange: (branch: string) => void;
   onCompanyChange: (company: string) => void;
   onPropertyChange: (property: string) => void;
   onGhostingChange: (ghosting: 'all' | 'ghosting' | 'not-ghosting') => void;
   onTerminatedChange: (terminated: 'all' | 'terminated' | 'not-terminated') => void;
+  onPaymentStatusChange: (status: string) => void;
   onAddNote: (invoice: Invoice) => void;
   onAddFollowUp: (invoice: Invoice) => void;
   onEditNote: (noteId: number, noteText: string) => void;
@@ -65,11 +67,13 @@ export default function InvoiceTable({
   selectedProperty,
   selectedGhosting,
   selectedTerminated,
+  selectedPaymentStatus,
   onBranchChange,
   onCompanyChange,
   onPropertyChange,
   onGhostingChange,
   onTerminatedChange,
+  onPaymentStatusChange,
   onAddNote,
   onAddFollowUp,
   onEditNote,
@@ -349,6 +353,19 @@ ar@encorelm.com`;
                 <option value="all">All Properties</option>
                 {properties.slice(1).map(property => (
                   <option key={property} value={property}>{property}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">PAYMENT STATUS</label>
+              <select
+                value={selectedPaymentStatus}
+                onChange={(e) => onPaymentStatusChange(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Statuses</option>
+                {PAYMENT_STATUS_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </div>

@@ -54,6 +54,7 @@ export default function ARManagementApp() {
     selectedRegion,
     selectedGhosting,
     selectedTerminated,
+    selectedPaymentStatus,
     setSelectedBucket,
     setSelectedBranch,
     setSelectedCompany,
@@ -61,6 +62,7 @@ export default function ARManagementApp() {
     setSelectedRegion,
     setSelectedGhosting,
     setSelectedTerminated,
+    setSelectedPaymentStatus,
     syncFromAspire,
     addNote,
     addFollowUp,
@@ -172,11 +174,13 @@ export default function ARManagementApp() {
               selectedProperty={selectedProperty}
               selectedGhosting={selectedGhosting}
               selectedTerminated={selectedTerminated}
+              selectedPaymentStatus={selectedPaymentStatus}
               onBranchChange={setSelectedBranch}
               onCompanyChange={setSelectedCompany}
               onPropertyChange={setSelectedProperty}
               onGhostingChange={setSelectedGhosting}
               onTerminatedChange={setSelectedTerminated}
+              onPaymentStatusChange={setSelectedPaymentStatus}
               onAddNote={handleOpenNoteModal}
               onAddFollowUp={handleOpenFollowUpModal}
               onEditNote={editNote}

@@ -20,6 +20,7 @@ export function useInvoices() {
   const [selectedRegion, setSelectedRegion] = useState<'all' | 'phoenix' | 'las-vegas'>('all');
   const [selectedGhosting, setSelectedGhosting] = useState<'all' | 'ghosting' | 'not-ghosting'>('all');
   const [selectedTerminated, setSelectedTerminated] = useState<'all' | 'terminated' | 'not-terminated'>('all');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all');
 
   useEffect(() => {
     loadInvoiceDataFromSupabase();
@@ -653,6 +654,9 @@ export function useInvoices() {
     if (selectedTerminated === 'terminated') return inv.isTerminated === true;
     if (selectedTerminated === 'not-terminated') return inv.isTerminated !== true;
     return true;
+  }).filter(inv => {
+    if (selectedPaymentStatus === 'all') return true;
+    return inv.paymentStatus === selectedPaymentStatus;
   });
 
   const bucketFilteredInvoices = invoices.filter(inv => {
@@ -1067,6 +1071,7 @@ export function useInvoices() {
     selectedRegion,
     selectedGhosting,
     selectedTerminated,
+    selectedPaymentStatus,
     setSelectedBucket,
     setSelectedBranch,
     setSelectedCompany,
@@ -1074,6 +1079,7 @@ export function useInvoices() {
     setSelectedRegion,
     setSelectedGhosting,
     setSelectedTerminated,
+    setSelectedPaymentStatus,
     syncFromAspire,
     loadInvoiceData: loadInvoiceDataFromSupabase,
     addNote,
