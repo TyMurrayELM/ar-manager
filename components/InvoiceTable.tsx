@@ -745,11 +745,6 @@ ar@encorelm.com`;
             })}
           </tbody>
         </table>
-        {invoices.length > 50 && (
-          <div className="p-4 text-center text-sm text-gray-500 border-t">
-            Showing first 50 of {invoices.length} invoices
-          </div>
-        )}
       </div>
     </div>
   );
