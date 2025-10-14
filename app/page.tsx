@@ -1,103 +1,221 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useInvoices } from '@/hooks/useInvoices';
+import { Invoice, TabType } from '@/types';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+
+import LoadingSpinner from '@/components/LoadingSpinner';
+import Header from '@/components/Header';
+import TabNavigation from '@/components/TabNavigation';
+import SummaryCards from '@/components/SummaryCards';
+import BucketPieCharts from '@/components/BucketPieCharts';
+import InvoiceTable from '@/components/InvoiceTable';
+import FollowUpsList from '@/components/FollowUpsList';
+import StatsView from '@/components/StatsView';
+import KPIView from '@/components/KPIView';
+import AddNoteModal from '@/components/AddNoteModal';
+import AddFollowUpModal from '@/components/AddFollowUpModal';
+
+export default function ARManagementApp() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabType>('invoices');
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [showPieCharts, setShowPieCharts] = useState(true);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
+  const {
+    invoices,
+    filteredInvoices,
+    followUps,
+    snapshots,
+    loading,
+    syncing,
+    lastSyncTime,
+    buckets,
+    branches,
+    companies,
+    properties,
+    selectedBucket,
+    selectedBranch,
+    selectedCompany,
+    selectedProperty,
+    selectedRegion,
+    selectedGhosting,
+    setSelectedBucket,
+    setSelectedBranch,
+    setSelectedCompany,
+    setSelectedProperty,
+    setSelectedRegion,
+    setSelectedGhosting,
+    syncFromAspire,
+    addNote,
+    addFollowUp,
+    editNote,
+    deleteNote,
+    completeFollowUp,
+    deleteFollowUp,
+    editFollowUp,
+    toggleGhosting,
+    updatePaymentStatus,
+    createSnapshot
+  } = useInvoices();
+
+  const handleOpenNoteModal = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setShowNoteModal(true);
+  };
+
+  const handleOpenFollowUpModal = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setShowFollowUpModal(true);
+  };
+
+  const handleCloseNoteModal = () => {
+    setShowNoteModal(false);
+    setSelectedInvoice(null);
+  };
+
+  const handleCloseFollowUpModal = () => {
+    setShowFollowUpModal(false);
+    setSelectedInvoice(null);
+  };
+
+  const handleSaveNote = async (invoice: Invoice, noteText: string) => {
+    await addNote(invoice, noteText);
+  };
+
+  const handleSaveFollowUp = async (invoice: Invoice, noteText: string, followUpDate: string) => {
+    await addFollowUp(invoice, noteText, followUpDate);
+  };
+
+  const pendingFollowUps = followUps.filter(fu => !fu.completed).length;
+
+  // Show loading while checking auth
+  if (authLoading || (!user && !authLoading)) {
+    return <LoadingSpinner />;
+  }
+
+  // Show loading while fetching data
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gray-50">
+      <Header 
+        onSync={syncFromAspire} 
+        syncing={syncing}
+        lastSyncTime={lastSyncTime}
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+      <div className="px-8 py-6">
+        <TabNavigation 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab}
+          pendingFollowUps={pendingFollowUps}
+          selectedRegion={selectedRegion}
+          onRegionChange={setSelectedRegion}
+        />
+
+        {activeTab === 'invoices' ? (
+          <>
+            <SummaryCards 
+              buckets={buckets}
+              selectedBucket={selectedBucket}
+              onBucketSelect={setSelectedBucket}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+            <div className="mb-6">
+              <button
+                onClick={() => setShowPieCharts(!showPieCharts)}
+                className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors mb-3"
+              >
+                {showPieCharts ? (
+                  <ChevronDown className="w-5 h-5" />
+                ) : (
+                  <ChevronRight className="w-5 h-5" />
+                )}
+                <span className="font-semibold text-sm">Company Breakdown by Bucket</span>
+              </button>
+
+              {showPieCharts && (
+                <BucketPieCharts 
+                  invoices={invoices}
+                  selectedBucket={selectedBucket}
+                  selectedRegion={selectedRegion}
+                />
+              )}
+            </div>
+
+            <InvoiceTable 
+              invoices={filteredInvoices}
+              branches={branches}
+              companies={companies}
+              properties={properties}
+              selectedBranch={selectedBranch}
+              selectedCompany={selectedCompany}
+              selectedProperty={selectedProperty}
+              selectedGhosting={selectedGhosting}
+              onBranchChange={setSelectedBranch}
+              onCompanyChange={setSelectedCompany}
+              onPropertyChange={setSelectedProperty}
+              onGhostingChange={setSelectedGhosting}
+              onAddNote={handleOpenNoteModal}
+              onAddFollowUp={handleOpenFollowUpModal}
+              onEditNote={editNote}
+              onDeleteNote={deleteNote}
+              onToggleGhosting={toggleGhosting}
+              onUpdatePaymentStatus={updatePaymentStatus}
+            />
+          </>
+        ) : activeTab === 'followups' ? (
+          <FollowUpsList 
+            followUps={followUps}
+            onComplete={completeFollowUp}
+            onDelete={deleteFollowUp}
+            onEdit={editFollowUp}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        ) : activeTab === 'stats' ? (
+          <StatsView 
+            invoices={invoices}
+            selectedRegion={selectedRegion}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
+        ) : (
+          <KPIView 
+            snapshots={snapshots}
+            selectedRegion={selectedRegion}
+            onCreateSnapshot={createSnapshot}
           />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        )}
+      </div>
+
+      {showNoteModal && (
+        <AddNoteModal 
+          invoice={selectedInvoice}
+          onClose={handleCloseNoteModal}
+          onSave={handleSaveNote}
+        />
+      )}
+
+      {showFollowUpModal && (
+        <AddFollowUpModal 
+          invoice={selectedInvoice}
+          onClose={handleCloseFollowUpModal}
+          onSave={handleSaveFollowUp}
+        />
+      )}
     </div>
   );
 }
