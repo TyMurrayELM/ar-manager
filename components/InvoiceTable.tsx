@@ -441,7 +441,7 @@ ar@encorelm.com`;
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {invoices.slice(0, 50).map((invoice) => {
+            {invoices.map((invoice) => {
               const isExpanded = expandedRows.has(invoice.invoice_id);
               const history = getInvoiceHistory(invoice);
               const hasHistory = history.length > 0;
