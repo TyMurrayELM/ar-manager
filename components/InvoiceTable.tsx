@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, MessageSquare, Pencil, Trash2, Calendar, FileText, CheckCircle2, Ghost } from 'lucide-react';
+import { ChevronDown, ChevronRight, MessageSquare, Pencil, Trash2, Calendar, FileText, CheckCircle2, Ghost, StickyNote } from 'lucide-react';
 import { Invoice, InvoiceNote, HistoryItem, PaymentStatus } from '@/types';
 import { formatCurrency, formatDate, getBranchColor } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+
+interface PropertyNote {
+  property_name: string;
+  note_text: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
 
 interface InvoiceTableProps {
   invoices: Invoice[];
@@ -17,6 +25,7 @@ interface InvoiceTableProps {
   selectedTerminated: 'all' | 'terminated' | 'not-terminated';
   selectedPaymentStatus: string;
   showCurrentInvoices: boolean;
+  propertyNotes: Map<string, PropertyNote>;
   onBranchChange: (branch: string) => void;
   onCompanyChange: (company: string) => void;
   onPropertyChange: (property: string) => void;
@@ -31,6 +40,8 @@ interface InvoiceTableProps {
   onToggleGhosting: (invoiceId: number, currentStatus: boolean) => void;
   onToggleTerminated: (invoiceId: number, currentStatus: boolean) => void;
   onUpdatePaymentStatus: (invoiceId: number, status: PaymentStatus) => void;
+  onAddPropertyNote: (propertyName: string) => void;
+  onEditPropertyNote: (propertyName: string, noteText: string) => void;
 }
 
 interface DriveFileResult {
@@ -71,6 +82,7 @@ export default function InvoiceTable({
   selectedTerminated,
   selectedPaymentStatus,
   showCurrentInvoices,
+  propertyNotes,
   onBranchChange,
   onCompanyChange,
   onPropertyChange,
@@ -84,7 +96,9 @@ export default function InvoiceTable({
   onDeleteNote,
   onToggleGhosting,
   onToggleTerminated,
-  onUpdatePaymentStatus
+  onUpdatePaymentStatus,
+  onAddPropertyNote,
+  onEditPropertyNote
 }: InvoiceTableProps) {
   const { user } = useAuth();
   const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || 'AR Team';
@@ -93,6 +107,9 @@ export default function InvoiceTable({
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteText, setEditingNoteText] = useState('');
   const [searchingInvoice, setSearchingInvoice] = useState<number | null>(null);
+  const [viewingPropertyNote, setViewingPropertyNote] = useState<string | null>(null);
+  const [editingPropertyNote, setEditingPropertyNote] = useState<string | null>(null);
+  const [editingPropertyNoteText, setEditingPropertyNoteText] = useState('');
 
   const getInvoiceHistory = (invoice: Invoice): HistoryItem[] => {
     const history: HistoryItem[] = [];
@@ -168,6 +185,38 @@ export default function InvoiceTable({
 
   const handlePaymentStatusChange = (invoiceId: number, newStatus: string) => {
     onUpdatePaymentStatus(invoiceId, newStatus as PaymentStatus);
+  };
+
+  const handlePropertyNoteClick = (propertyName: string) => {
+    const existingNote = propertyNotes.get(propertyName);
+    if (existingNote) {
+      setViewingPropertyNote(propertyName);
+    } else {
+      // Open modal to add new note
+      onAddPropertyNote(propertyName);
+    }
+  };
+
+  const startEditingPropertyNote = (propertyName: string) => {
+    const note = propertyNotes.get(propertyName);
+    if (note) {
+      setEditingPropertyNote(propertyName);
+      setEditingPropertyNoteText(note.note_text);
+      setViewingPropertyNote(null);
+    }
+  };
+
+  const savePropertyNote = () => {
+    if (editingPropertyNote && editingPropertyNoteText.trim()) {
+      onEditPropertyNote(editingPropertyNote, editingPropertyNoteText);
+      setEditingPropertyNote(null);
+      setEditingPropertyNoteText('');
+    }
+  };
+
+  const cancelEditingPropertyNote = () => {
+    setEditingPropertyNote(null);
+    setEditingPropertyNoteText('');
   };
 
   // Search for invoice in Google Drive
@@ -437,6 +486,7 @@ ar@encorelm.com`;
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Activity</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Ghosting</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Terminated</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Property AR Notes</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Actions</th>
             </tr>
           </thead>
@@ -446,6 +496,8 @@ ar@encorelm.com`;
               const history = getInvoiceHistory(invoice);
               const hasHistory = history.length > 0;
               const currentStatus = invoice.paymentStatus || 'No Follow Up';
+              const propertyNote = invoice.propertyName ? propertyNotes.get(invoice.propertyName) : null;
+              const hasPropertyNote = !!propertyNote;
 
               return (
                 <React.Fragment key={invoice.invoice_id}>
@@ -567,6 +619,31 @@ ar@encorelm.com`;
                         </button>
                       </div>
                     </td>
+                    <td className={`px-4 py-4 ${hasPropertyNote ? 'bg-yellow-100' : ''}`}>
+                      <div className="flex justify-center">
+                        {invoice.propertyName ? (
+                          <button
+                            onClick={() => handlePropertyNoteClick(invoice.propertyName!)}
+                            className={`p-1.5 rounded transition-colors ${
+                              hasPropertyNote 
+                                ? 'hover:bg-yellow-200' 
+                                : 'hover:bg-gray-100'
+                            }`}
+                            title={hasPropertyNote ? "View/Edit Property AR Note" : "Add Property AR Note"}
+                          >
+                            <StickyNote 
+                              className={`w-5 h-5 ${
+                                hasPropertyNote 
+                                  ? 'text-yellow-700' 
+                                  : 'text-gray-400'
+                              }`}
+                            />
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-4">
                       <div className="flex gap-2">
                         {/* Gmail Icon */}
@@ -605,7 +682,7 @@ ar@encorelm.com`;
                   {/* Expanded Activity Row */}
                   {isExpanded && hasHistory && (
                     <tr className="bg-gray-50">
-                      <td colSpan={13} className="px-4 py-4">
+                      <td colSpan={14} className="px-4 py-4">
                         <div className="ml-8">
                           <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                             <MessageSquare className="w-4 h-4" />
@@ -746,6 +823,97 @@ ar@encorelm.com`;
           </tbody>
         </table>
       </div>
+
+      {/* Property Note View Modal */}
+      {viewingPropertyNote && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Property AR Note: {viewingPropertyNote}</h3>
+            </div>
+            <div className="p-6">
+              {propertyNotes.get(viewingPropertyNote) && (
+                <div className="space-y-3">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      {propertyNotes.get(viewingPropertyNote)!.note_text}
+                    </p>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    <p>Created by: {propertyNotes.get(viewingPropertyNote)!.created_by}</p>
+                    <p>Created: {new Date(propertyNotes.get(viewingPropertyNote)!.created_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })}</p>
+                    {propertyNotes.get(viewingPropertyNote)!.updated_at !== propertyNotes.get(viewingPropertyNote)!.created_at && (
+                      <p>Last updated: {new Date(propertyNotes.get(viewingPropertyNote)!.updated_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={() => startEditingPropertyNote(viewingPropertyNote)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
+              >
+                Edit Note
+              </button>
+              <button
+                onClick={() => setViewingPropertyNote(null)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-sm font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Property Note Edit Modal */}
+      {editingPropertyNote && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Property AR Note: {editingPropertyNote}</h3>
+            </div>
+            <div className="p-6">
+              <textarea
+                value={editingPropertyNoteText}
+                onChange={(e) => setEditingPropertyNoteText(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                rows={6}
+                placeholder="Enter note about this property..."
+                autoFocus
+              />
+            </div>
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={savePropertyNote}
+                disabled={!editingPropertyNoteText.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Note
+              </button>
+              <button
+                onClick={cancelEditingPropertyNote}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

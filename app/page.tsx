@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useInvoices } from '@/hooks/useInvoices';
 import { Invoice, TabType } from '@/types';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Header from '@/components/Header';
@@ -18,6 +19,15 @@ import StatsView from '@/components/StatsView';
 import KPIView from '@/components/KPIView';
 import AddNoteModal from '@/components/AddNoteModal';
 import AddFollowUpModal from '@/components/AddFollowUpModal';
+import AddPropertyNoteModal from '@/components/AddPropertyNoteModal';
+
+interface PropertyNote {
+  property_name: string;
+  note_text: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function ARManagementApp() {
   const { user, loading: authLoading } = useAuth();
@@ -25,8 +35,11 @@ export default function ARManagementApp() {
   const [activeTab, setActiveTab] = useState<TabType>('invoices');
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [showPropertyNoteModal, setShowPropertyNoteModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [selectedPropertyForNote, setSelectedPropertyForNote] = useState<string | null>(null);
   const [showPieCharts, setShowPieCharts] = useState(true);
+  const [propertyNotes, setPropertyNotes] = useState<Map<string, PropertyNote>>(new Map());
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -79,6 +92,37 @@ export default function ARManagementApp() {
     createSnapshot
   } = useInvoices();
 
+  // Load property notes from Supabase
+  useEffect(() => {
+    if (user) {
+      loadPropertyNotes();
+    }
+  }, [user]);
+
+  const loadPropertyNotes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('property_ar_notes')
+        .select('*');
+
+      if (error) {
+        console.error('Error loading property notes:', error);
+        return;
+      }
+
+      if (data) {
+        const notesMap = new Map<string, PropertyNote>();
+        data.forEach((note: PropertyNote) => {
+          notesMap.set(note.property_name, note);
+        });
+        setPropertyNotes(notesMap);
+        console.log('✅ Loaded', data.length, 'property notes');
+      }
+    } catch (error) {
+      console.error('Error in loadPropertyNotes:', error);
+    }
+  };
+
   const handleOpenNoteModal = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setShowNoteModal(true);
@@ -87,6 +131,11 @@ export default function ARManagementApp() {
   const handleOpenFollowUpModal = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setShowFollowUpModal(true);
+  };
+
+  const handleOpenPropertyNoteModal = (propertyName: string) => {
+    setSelectedPropertyForNote(propertyName);
+    setShowPropertyNoteModal(true);
   };
 
   const handleCloseNoteModal = () => {
@@ -99,12 +148,126 @@ export default function ARManagementApp() {
     setSelectedInvoice(null);
   };
 
+  const handleClosePropertyNoteModal = () => {
+    setShowPropertyNoteModal(false);
+    setSelectedPropertyForNote(null);
+  };
+
   const handleSaveNote = async (invoice: Invoice, noteText: string) => {
     await addNote(invoice, noteText);
   };
 
   const handleSaveFollowUp = async (invoice: Invoice, noteText: string, followUpDate: string) => {
     await addFollowUp(invoice, noteText, followUpDate);
+  };
+
+  const handleSavePropertyNote = async (propertyName: string, noteText: string) => {
+    try {
+      const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || 'AR Team';
+      
+      // Check if property note already exists
+      const existingNote = propertyNotes.get(propertyName);
+
+      if (existingNote) {
+        // Update existing note
+        const { error } = await supabase
+          .from('property_ar_notes')
+          .update({
+            note_text: noteText,
+            updated_at: new Date().toISOString()
+          })
+          .eq('property_name', propertyName);
+
+        if (error) {
+          console.error('Error updating property note:', error);
+          alert('Failed to update property note. Please try again.');
+          return;
+        }
+
+        // Update local state
+        setPropertyNotes(prev => {
+          const newMap = new Map(prev);
+          newMap.set(propertyName, {
+            ...existingNote,
+            note_text: noteText,
+            updated_at: new Date().toISOString()
+          });
+          return newMap;
+        });
+
+        console.log('✅ Property note updated');
+      } else {
+        // Insert new note
+        const { data, error } = await supabase
+          .from('property_ar_notes')
+          .insert({
+            property_name: propertyName,
+            note_text: noteText,
+            created_by: userName,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error creating property note:', error);
+          alert('Failed to create property note. Please try again.');
+          return;
+        }
+
+        // Update local state
+        setPropertyNotes(prev => {
+          const newMap = new Map(prev);
+          newMap.set(propertyName, data);
+          return newMap;
+        });
+
+        console.log('✅ Property note created');
+      }
+
+      handleClosePropertyNoteModal();
+    } catch (error) {
+      console.error('Error in handleSavePropertyNote:', error);
+      alert('Failed to save property note. Please try again.');
+    }
+  };
+
+  const handleEditPropertyNote = async (propertyName: string, noteText: string) => {
+    try {
+      const { error } = await supabase
+        .from('property_ar_notes')
+        .update({
+          note_text: noteText,
+          updated_at: new Date().toISOString()
+        })
+        .eq('property_name', propertyName);
+
+      if (error) {
+        console.error('Error updating property note:', error);
+        alert('Failed to update property note. Please try again.');
+        return;
+      }
+
+      // Update local state
+      const existingNote = propertyNotes.get(propertyName);
+      if (existingNote) {
+        setPropertyNotes(prev => {
+          const newMap = new Map(prev);
+          newMap.set(propertyName, {
+            ...existingNote,
+            note_text: noteText,
+            updated_at: new Date().toISOString()
+          });
+          return newMap;
+        });
+      }
+
+      console.log('✅ Property note updated');
+    } catch (error) {
+      console.error('Error in handleEditPropertyNote:', error);
+      alert('Failed to update property note. Please try again.');
+    }
   };
 
   const pendingFollowUps = followUps.filter(fu => !fu.completed).length;
@@ -178,6 +341,7 @@ export default function ARManagementApp() {
               selectedTerminated={selectedTerminated}
               selectedPaymentStatus={selectedPaymentStatus}
               showCurrentInvoices={showCurrentInvoices}
+              propertyNotes={propertyNotes}
               onBranchChange={setSelectedBranch}
               onCompanyChange={setSelectedCompany}
               onPropertyChange={setSelectedProperty}
@@ -192,6 +356,8 @@ export default function ARManagementApp() {
               onToggleGhosting={toggleGhosting}
               onToggleTerminated={toggleTerminated}
               onUpdatePaymentStatus={updatePaymentStatus}
+              onAddPropertyNote={handleOpenPropertyNoteModal}
+              onEditPropertyNote={handleEditPropertyNote}
             />
           </>
         ) : activeTab === 'followups' ? (
@@ -228,6 +394,15 @@ export default function ARManagementApp() {
           invoice={selectedInvoice}
           onClose={handleCloseFollowUpModal}
           onSave={handleSaveFollowUp}
+        />
+      )}
+
+      {showPropertyNoteModal && selectedPropertyForNote && (
+        <AddPropertyNoteModal 
+          propertyName={selectedPropertyForNote}
+          existingNote={propertyNotes.get(selectedPropertyForNote)?.note_text || ''}
+          onClose={handleClosePropertyNoteModal}
+          onSave={handleSavePropertyNote}
         />
       )}
     </div>
