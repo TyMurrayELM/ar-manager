@@ -494,8 +494,8 @@ ar@encorelm.com`;
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Days Past Due</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Payment Status</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Activity</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Ghosting</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Terminated</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Client Ghosting</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Terminated Property</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Property AR Notes</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Actions</th>
             </tr>
