@@ -385,6 +385,7 @@ export default function ARManagementApp() {
               onUpdatePaymentStatus={updatePaymentStatus}
               onAddPropertyNote={handleOpenPropertyNoteModal}
               onEditPropertyNote={handleEditPropertyNote}
+              onDeletePropertyNote={handleDeletePropertyNote}
             />
           </>
         ) : activeTab === 'followups' ? (
