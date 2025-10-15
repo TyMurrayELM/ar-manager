@@ -270,6 +270,33 @@ export default function ARManagementApp() {
     }
   };
 
+  const handleDeletePropertyNote = async (propertyName: string) => {
+    try {
+      const { error } = await supabase
+        .from('property_ar_notes')
+        .delete()
+        .eq('property_name', propertyName);
+
+      if (error) {
+        console.error('Error deleting property note:', error);
+        alert('Failed to delete property note. Please try again.');
+        return;
+      }
+
+      // Update local state
+      setPropertyNotes(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(propertyName);
+        return newMap;
+      });
+
+      console.log('✅ Property note deleted');
+    } catch (error) {
+      console.error('Error in handleDeletePropertyNote:', error);
+      alert('Failed to delete property note. Please try again.');
+    }
+  };
+
   const pendingFollowUps = followUps.filter(fu => !fu.completed).length;
 
   // Show loading while checking auth
