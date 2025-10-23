@@ -397,9 +397,10 @@ export default function ARManagementApp() {
           />
         ) : activeTab === 'stats' ? (
           <StatsView 
-            invoices={invoices}
-            selectedRegion={selectedRegion}
-          />
+  invoices={invoices}
+  selectedRegion={selectedRegion}
+  propertyNotes={propertyNotes}
+/>
         ) : (
           <KPIView 
             snapshots={snapshots}

@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Invoice } from '@/types';
-import { formatCurrency, formatCompactCurrency } from '@/lib/utils';
-import { Ghost } from 'lucide-react';
+import { formatCurrency, formatCompactCurrency, formatDate } from '@/lib/utils';
+import { Ghost, ChevronDown, ChevronRight, StickyNote } from 'lucide-react';
+
+interface PropertyNote {
+  property_name: string;
+  note_text: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
 
 interface StatsViewProps {
   invoices: Invoice[];
   selectedRegion: 'all' | 'phoenix' | 'las-vegas';
+  propertyNotes: Map<string, PropertyNote>;
 }
 
 interface CompanyStats {
@@ -26,10 +35,39 @@ interface CompanyStats {
   hasTerminated: boolean;
 }
 
-export default function StatsView({ invoices, selectedRegion }: StatsViewProps) {
+interface PropertyStats {
+  property: string;
+  total: number;
+  count: number;
+  aging_1_30: number;
+  aging_31_60: number;
+  aging_61_90: number;
+  aging_91_120: number;
+  aging_121_plus: number;
+  count_1_30: number;
+  count_31_60: number;
+  count_61_90: number;
+  count_91_120: number;
+  count_121_plus: number;
+  hasGhosting: boolean;
+  hasTerminated: boolean;
+}
+
+export default function StatsView({ invoices, selectedRegion, propertyNotes }: StatsViewProps) {
   const [selectedCompany, setSelectedCompany] = useState('all');
   const [selectedProperty, setSelectedProperty] = useState('all');
   const [selectedGhosting, setSelectedGhosting] = useState<'all' | 'ghosting' | 'not-ghosting'>('all');
+  const [hideCurrent, setHideCurrent] = useState(true);
+  
+  // Collapsible section states
+  const [showFlowChart, setShowFlowChart] = useState(true);
+  const [showCompanyDollars, setShowCompanyDollars] = useState(true);
+  const [showCompanyCount, setShowCompanyCount] = useState(true);
+  const [showPropertyDollars, setShowPropertyDollars] = useState(true);
+  const [showPropertyCount, setShowPropertyCount] = useState(true);
+  
+  // Expanded property rows for showing notes and invoice details
+  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
 
   // Filter by region first
   const regionFilteredInvoices = invoices.filter(inv => {
@@ -65,8 +103,21 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
     if (selectedProperty !== 'all' && inv.propertyName !== selectedProperty) return false;
     if (selectedGhosting === 'ghosting' && !inv.isGhosting) return false;
     if (selectedGhosting === 'not-ghosting' && inv.isGhosting) return false;
+    if (hideCurrent && inv.pastDue === 0) return false;
     return true;
   });
+
+  const togglePropertyExpanded = (property: string) => {
+    setExpandedProperties(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(property)) {
+        newSet.delete(property);
+      } else {
+        newSet.add(property);
+      }
+      return newSet;
+    });
+  };
 
   // Calculate company stats
   const companyStatsMap = new Map<string, CompanyStats>();
@@ -98,33 +149,69 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
     existing.aging_91_120 += inv.aging_91_120;
     existing.aging_121_plus += inv.aging_121_plus;
     
-    // Track counts per aging bucket
     if (inv.aging_1_30 > 0) existing.count_1_30 += 1;
     if (inv.aging_31_60 > 0) existing.count_31_60 += 1;
     if (inv.aging_61_90 > 0) existing.count_61_90 += 1;
     if (inv.aging_91_120 > 0) existing.count_91_120 += 1;
     if (inv.aging_121_plus > 0) existing.count_121_plus += 1;
     
-    // If any invoice for this company is ghosting, mark the company as having ghosting
-    if (inv.isGhosting) {
-      existing.hasGhosting = true;
-    }
-    
-    // If any invoice for this company is terminated, mark the company as having terminated
-    if (inv.isTerminated) {
-      existing.hasTerminated = true;
-    }
+    if (inv.isGhosting) existing.hasGhosting = true;
+    if (inv.isTerminated) existing.hasTerminated = true;
 
     companyStatsMap.set(inv.companyName, existing);
   });
 
   const companyStats = Array.from(companyStatsMap.values());
-  
-  // Sort by total dollars (highest to lowest)
   const statsByDollars = [...companyStats].sort((a, b) => b.total - a.total);
-  
-  // Sort by invoice count (highest to lowest)
   const statsByQuantity = [...companyStats].sort((a, b) => b.count - a.count);
+
+  // Calculate property stats
+  const propertyStatsMap = new Map<string, PropertyStats>();
+  
+  filteredInvoices.forEach(inv => {
+    if (!inv.propertyName) return;
+    
+    const existing = propertyStatsMap.get(inv.propertyName) || {
+      property: inv.propertyName,
+      total: 0,
+      count: 0,
+      aging_1_30: 0,
+      aging_31_60: 0,
+      aging_61_90: 0,
+      aging_91_120: 0,
+      aging_121_plus: 0,
+      count_1_30: 0,
+      count_31_60: 0,
+      count_61_90: 0,
+      count_91_120: 0,
+      count_121_plus: 0,
+      hasGhosting: false,
+      hasTerminated: false
+    };
+
+    existing.total += inv.amountRemaining;
+    existing.count += 1;
+    existing.aging_1_30 += inv.aging_1_30;
+    existing.aging_31_60 += inv.aging_31_60;
+    existing.aging_61_90 += inv.aging_61_90;
+    existing.aging_91_120 += inv.aging_91_120;
+    existing.aging_121_plus += inv.aging_121_plus;
+    
+    if (inv.aging_1_30 > 0) existing.count_1_30 += 1;
+    if (inv.aging_31_60 > 0) existing.count_31_60 += 1;
+    if (inv.aging_61_90 > 0) existing.count_61_90 += 1;
+    if (inv.aging_91_120 > 0) existing.count_91_120 += 1;
+    if (inv.aging_121_plus > 0) existing.count_121_plus += 1;
+    
+    if (inv.isGhosting) existing.hasGhosting = true;
+    if (inv.isTerminated) existing.hasTerminated = true;
+
+    propertyStatsMap.set(inv.propertyName, existing);
+  });
+
+  const propertyStats = Array.from(propertyStatsMap.values());
+  const propertyStatsByDollars = [...propertyStats].sort((a, b) => b.total - a.total);
+  const propertyStatsByQuantity = [...propertyStats].sort((a, b) => b.count - a.count);
 
   // Calculate aging bucket totals
   const agingTotals = {
@@ -145,11 +232,15 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
     agingTotals.aging_121_plus += inv.aging_121_plus;
   });
 
+  // Get invoices for a specific property
+  const getPropertyInvoices = (propertyName: string) => {
+    return filteredInvoices.filter(inv => inv.propertyName === propertyName);
+  };
+
   // Horizontal flow chart component
   const FlowChart = () => {
     const [hoveredSegment, setHoveredSegment] = useState<{ company: string; value: number; x: number; y: number } | null>(null);
     
-    // Get top companies by total outstanding
     const topCompanies = [...companyStats]
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
@@ -158,7 +249,6 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
       .sort((a, b) => b.total - a.total)
       .slice(10);
     
-    // Calculate "Other" totals
     const otherTotals = {
       aging_1_30: otherCompanies.reduce((sum, c) => sum + c.aging_1_30, 0),
       aging_31_60: otherCompanies.reduce((sum, c) => sum + c.aging_31_60, 0),
@@ -187,7 +277,6 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
     const maxHeight = 300;
     const topMargin = 20;
     
-    // Find max value for scaling
     const maxValue = Math.max(
       agingTotals.aging_1_30,
       agingTotals.aging_31_60,
@@ -196,219 +285,139 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
       agingTotals.aging_121_plus
     );
     
-    // Calculate x positions for each category
     const chartContentWidth = chartWidth - leftMargin - rightMargin;
     const xStep = chartContentWidth / (categories.length - 1);
     
-    // Build data structure for each company across all categories
     const companyLayers: { company: string; color: string; points: { x: number; y0: number; y1: number; value: number }[] }[] = [];
     
-    // Add "Other" as first layer (bottom)
     const otherPoints = categories.map((cat, index) => {
       const x = leftMargin + index * xStep;
       const value = otherTotals[cat.key as keyof typeof otherTotals];
-      const height = (value / maxValue) * maxHeight;
-      return { x, y0: topMargin + maxHeight, y1: topMargin + maxHeight - height, value };
+      const scaledHeight = (value / maxValue) * maxHeight;
+      return {
+        x,
+        y0: chartHeight - topMargin - scaledHeight,
+        y1: chartHeight - topMargin,
+        value
+      };
     });
-    companyLayers.push({ company: 'Other', color: colors[10], points: otherPoints });
     
-    // Add each company as a layer
-    [...topCompanies].reverse().forEach((company) => {
-      const actualIndex = topCompanies.length - 1 - topCompanies.reverse().indexOf(company);
-      topCompanies.reverse(); // reverse back
+    companyLayers.push({
+      company: 'Other',
+      color: colors[10],
+      points: otherPoints
+    });
+    
+    topCompanies.forEach((company, companyIndex) => {
       const points = categories.map((cat, catIndex) => {
         const x = leftMargin + catIndex * xStep;
         const value = company[cat.key as keyof typeof company] as number;
-        const height = (value / maxValue) * maxHeight;
+        const scaledHeight = (value / maxValue) * maxHeight;
+        const prevY1 = companyLayers[companyLayers.length - 1].points[catIndex].y0;
         
-        // Get the y1 from previous layer
-        const prevY = companyLayers[companyLayers.length - 1].points[catIndex].y1;
-        return { x, y0: prevY, y1: prevY - height, value };
+        return {
+          x,
+          y0: prevY1 - scaledHeight,
+          y1: prevY1,
+          value
+        };
       });
-      companyLayers.push({ company: company.company, color: colors[actualIndex], points });
+      
+      companyLayers.push({
+        company: company.company,
+        color: colors[companyIndex % 10],
+        points
+      });
     });
     
-    // Y-axis tick values
-    const yAxisTicks = [0, maxValue * 0.25, maxValue * 0.5, maxValue * 0.75, maxValue];
-    
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Distribution Across Aging Categories</h3>
-        <div className="overflow-x-auto relative">
-          <svg width={chartWidth} height={chartHeight} className="mx-auto">
-            {/* Y-axis */}
-            <line 
-              x1={leftMargin} 
-              y1={topMargin} 
-              x2={leftMargin} 
-              y2={topMargin + maxHeight} 
-              stroke="#9CA3AF" 
-              strokeWidth="2"
-            />
-            
-            {/* Y-axis ticks and labels */}
-            {yAxisTicks.map((tick, index) => {
-              const y = topMargin + maxHeight - (tick / maxValue) * maxHeight;
-              return (
-                <g key={index}>
-                  <line 
-                    x1={leftMargin - 5} 
-                    y1={y} 
-                    x2={leftMargin} 
-                    y2={y} 
-                    stroke="#9CA3AF" 
-                    strokeWidth="2"
-                  />
-                  <text
-                    x={leftMargin - 10}
-                    y={y + 4}
-                    textAnchor="end"
-                    className="text-xs fill-gray-600"
-                    style={{ fontSize: '11px' }}
-                  >
-                    {formatCompactCurrency(tick)}
-                  </text>
-                  {/* Grid line */}
-                  <line 
-                    x1={leftMargin} 
-                    y1={y} 
-                    x2={chartWidth - rightMargin} 
-                    y2={y} 
-                    stroke="#E5E7EB" 
-                    strokeWidth="1"
-                    strokeDasharray="4,4"
-                  />
-                </g>
-              );
-            })}
-            
-            {/* Draw area layers */}
-            {companyLayers.map((layer, layerIndex) => {
-              // Create path for this layer
-              let path = '';
-              
-              // Top line (going right)
-              layer.points.forEach((point, idx) => {
-                if (idx === 0) {
-                  path += `M ${point.x} ${point.y1}`;
-                } else {
-                  path += ` L ${point.x} ${point.y1}`;
-                }
-              });
-              
-              // Bottom line (going left)
-              for (let i = layer.points.length - 1; i >= 0; i--) {
-                path += ` L ${layer.points[i].x} ${layer.points[i].y0}`;
-              }
-              
-              path += ' Z';
-              
-              return (
-                <path
-                  key={layerIndex}
-                  d={path}
-                  fill={layer.color}
-                  opacity={0.85}
-                  stroke="#fff"
-                  strokeWidth="1"
-                  className="cursor-pointer hover:opacity-100 transition-opacity"
-                  onMouseEnter={(e) => {
-                    // Find which category we're hovering over
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const mouseX = e.clientX - rect.left;
-                    const categoryIndex = Math.min(Math.floor((mouseX - leftMargin) / xStep + 0.5), categories.length - 1);
-                    const value = layer.points[Math.max(0, categoryIndex)].value;
-                    setHoveredSegment({
-                      company: layer.company,
-                      value,
-                      x: e.clientX,
-                      y: e.clientY
-                    });
-                  }}
-                  onMouseMove={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const mouseX = e.clientX - rect.left;
-                    const categoryIndex = Math.min(Math.floor((mouseX - leftMargin) / xStep + 0.5), categories.length - 1);
-                    const value = layer.points[Math.max(0, categoryIndex)].value;
-                    setHoveredSegment({
-                      company: layer.company,
-                      value,
-                      x: e.clientX,
-                      y: e.clientY
-                    });
-                  }}
-                  onMouseLeave={() => setHoveredSegment(null)}
-                />
-              );
-            })}
-            
-            {/* Category labels and totals */}
-            {categories.map((category, index) => {
-              const x = leftMargin + index * xStep;
-              return (
-                <g key={index}>
-                  <text
-                    x={x}
-                    y={topMargin + maxHeight + 20}
-                    textAnchor="middle"
-                    className="text-xs fill-gray-600 font-medium"
-                    style={{ fontSize: '11px' }}
-                  >
-                    {category.label}
-                  </text>
-                  <text
-                    x={x}
-                    y={topMargin + maxHeight + 35}
-                    textAnchor="middle"
-                    className="text-xs fill-gray-900 font-semibold"
-                    style={{ fontSize: '11px' }}
-                  >
-                    {formatCompactCurrency(agingTotals[category.key as keyof typeof agingTotals])}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+      <div className="relative">
+        <svg width={chartWidth} height={chartHeight}>
+          <line x1={leftMargin} y1={topMargin} x2={leftMargin} y2={chartHeight - topMargin} stroke="#9CA3AF" strokeWidth="2" />
+          <line x1={leftMargin} y1={chartHeight - topMargin} x2={chartWidth - rightMargin} y2={chartHeight - topMargin} stroke="#9CA3AF" strokeWidth="2" />
           
-          {/* Hover tooltip */}
-          {hoveredSegment && hoveredSegment.value > 0 && (
-            <div 
-              className="fixed bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm z-50 pointer-events-none"
-              style={{ 
-                left: hoveredSegment.x + 10, 
-                top: hoveredSegment.y - 40 
-              }}
-            >
-              <div className="font-semibold">{hoveredSegment.company}</div>
-              <div>{formatCurrency(hoveredSegment.value)}</div>
-            </div>
-          )}
-        </div>
-        
-        {/* Legend */}
-        <div className="mt-6 flex flex-wrap gap-4 justify-center">
-          {[...topCompanies].reverse().map((company) => {
-            const actualIndex = topCompanies.length - 1 - topCompanies.reverse().indexOf(company);
-            topCompanies.reverse(); // reverse back
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+            const y = chartHeight - topMargin - ratio * maxHeight;
+            const value = maxValue * ratio;
             return (
-              <div key={company.company} className="flex items-center gap-2">
-                <div 
-                  className="w-4 h-4 rounded" 
-                  style={{ backgroundColor: colors[actualIndex], opacity: 0.85 }}
-                />
-                <span className="text-xs text-gray-700">{company.company}</span>
-              </div>
+              <g key={i}>
+                <line x1={leftMargin - 5} y1={y} x2={leftMargin} y2={y} stroke="#9CA3AF" strokeWidth="1" />
+                <text x={leftMargin - 10} y={y + 4} textAnchor="end" className="text-xs fill-gray-600">
+                  {formatCompactCurrency(value)}
+                </text>
+              </g>
             );
           })}
-          {otherCompanies.length > 0 && (
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-4 h-4 rounded" 
-                style={{ backgroundColor: colors[10], opacity: 0.85 }}
+          
+          {categories.map((cat, index) => {
+            const x = leftMargin + index * xStep;
+            return (
+              <text key={cat.key} x={x} y={chartHeight - 5} textAnchor="middle" className="text-xs fill-gray-600">
+                {cat.label}
+              </text>
+            );
+          })}
+          
+          {companyLayers.map((layer, layerIndex) => {
+            let path = '';
+            layer.points.forEach((point, i) => {
+              if (i === 0) {
+                path += `M ${point.x} ${point.y0}`;
+              } else {
+                path += ` L ${point.x} ${point.y0}`;
+              }
+            });
+            path += ` L ${layer.points[layer.points.length - 1].x} ${layer.points[layer.points.length - 1].y1}`;
+            for (let i = layer.points.length - 1; i >= 0; i--) {
+              path += ` L ${layer.points[i].x} ${layer.points[i].y1}`;
+            }
+            path += ' Z';
+            
+            return (
+              <path
+                key={layerIndex}
+                d={path}
+                fill={layer.color}
+                opacity={0.7}
+                stroke={layer.color}
+                strokeWidth="1"
+                onMouseEnter={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setHoveredSegment({
+                    company: layer.company,
+                    value: layer.points.reduce((sum, p) => sum + p.value, 0),
+                    x: rect.left + rect.width / 2,
+                    y: rect.top
+                  });
+                }}
+                onMouseLeave={() => setHoveredSegment(null)}
+                className="cursor-pointer hover:opacity-90 transition-opacity"
               />
-              <span className="text-xs text-gray-700">Other ({otherCompanies.length} companies)</span>
+            );
+          })}
+        </svg>
+        
+        {hoveredSegment && (
+          <div
+            className="absolute z-10 bg-gray-900 text-white px-3 py-2 rounded shadow-lg text-sm"
+            style={{
+              left: hoveredSegment.x,
+              top: hoveredSegment.y - 60,
+              transform: 'translateX(-50%)'
+            }}
+          >
+            <div className="font-semibold">{hoveredSegment.company}</div>
+            <div>{formatCurrency(hoveredSegment.value)}</div>
+          </div>
+        )}
+        
+        <div className="mt-4 flex flex-wrap gap-3">
+          {companyLayers.slice().reverse().map((layer, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: layer.color }} />
+              <span className="text-sm text-gray-700">{layer.company}</span>
             </div>
-          )}
+          ))}
         </div>
       </div>
     );
@@ -416,9 +425,9 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
 
   return (
     <div className="space-y-6">
-      {/* Filter Bar */}
+      {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">COMPANY</label>
             <select
@@ -426,8 +435,7 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
               onChange={(e) => setSelectedCompany(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">All Companies</option>
-              {companies.slice(1).map(company => (
+              {companies.map(company => (
                 <option key={company} value={company}>{company}</option>
               ))}
             </select>
@@ -439,8 +447,7 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
               onChange={(e) => setSelectedProperty(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">All Properties</option>
-              {properties.slice(1).map(property => (
+              {properties.map(property => (
                 <option key={property} value={property}>{property}</option>
               ))}
             </select>
@@ -457,6 +464,23 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
               <option value="not-ghosting">FALSE</option>
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">HIDE CURRENT</label>
+            <button
+              onClick={() => setHideCurrent(!hideCurrent)}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                hideCurrent ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+              role="switch"
+              aria-checked={hideCurrent}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${
+                  hideCurrent ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
           <div className="ml-auto text-sm text-gray-600">
             Showing <span className="font-semibold">{filteredInvoices.length}</span> invoices
           </div>
@@ -464,108 +488,417 @@ export default function StatsView({ invoices, selectedRegion }: StatsViewProps) 
       </div>
 
       {/* Flow Chart */}
-      <FlowChart />
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div 
+          className="p-4 border-b border-gray-200 flex items-center gap-2 cursor-pointer hover:bg-gray-50"
+          onClick={() => setShowFlowChart(!showFlowChart)}
+        >
+          {showFlowChart ? <ChevronDown className="w-5 h-5 text-gray-600" /> : <ChevronRight className="w-5 h-5 text-gray-600" />}
+          <h3 className="text-lg font-semibold text-gray-900">Company Distribution Across Aging Buckets</h3>
+        </div>
+        {showFlowChart && (
+          <div className="p-6">
+            <FlowChart />
+          </div>
+        )}
+      </div>
 
       {/* Company Breakdown by Dollars */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <div className="p-4 border-b border-gray-200">
+        <div 
+          className="p-4 border-b border-gray-200 flex items-center gap-2 cursor-pointer hover:bg-gray-50"
+          onClick={() => setShowCompanyDollars(!showCompanyDollars)}
+        >
+          {showCompanyDollars ? <ChevronDown className="w-5 h-5 text-gray-600" /> : <ChevronRight className="w-5 h-5 text-gray-600" />}
           <h3 className="text-lg font-semibold text-gray-900">Company Breakdown by Dollars</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {statsByDollars.slice(0, 20).map((stat) => (
-                <tr key={stat.company} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                    <div className="flex items-center gap-2">
-                      <span>{stat.company}</span>
-                      {stat.hasGhosting && (
-                        <div className="p-1 rounded bg-purple-100">
-                          <Ghost className="w-4 h-4 text-gray-900" />
-                        </div>
-                      )}
-                      {stat.hasTerminated && (
-                        <div className="p-1 rounded bg-red-100">
-                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">${Math.round(stat.total).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_1_30).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_31_60).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_61_90).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_91_120).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_121_plus).toLocaleString()}</td>
+        {showCompanyDollars && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {statsByDollars.slice(0, 20).map((stat) => (
+                  <tr key={stat.company} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{stat.company}</span>
+                        {stat.hasGhosting && (
+                          <div className="p-1 rounded bg-purple-100">
+                            <Ghost className="w-4 h-4 text-gray-900" />
+                          </div>
+                        )}
+                        {stat.hasTerminated && (
+                          <div className="p-1 rounded bg-red-100">
+                            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">${Math.round(stat.total).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_1_30).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_31_60).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_61_90).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_91_120).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_121_plus).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Company Breakdown by Quantity */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <div className="p-4 border-b border-gray-200">
+        <div 
+          className="p-4 border-b border-gray-200 flex items-center gap-2 cursor-pointer hover:bg-gray-50"
+          onClick={() => setShowCompanyCount(!showCompanyCount)}
+        >
+          {showCompanyCount ? <ChevronDown className="w-5 h-5 text-gray-600" /> : <ChevronRight className="w-5 h-5 text-gray-600" />}
           <h3 className="text-lg font-semibold text-gray-900">Company Breakdown by Invoice Count</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {statsByQuantity.slice(0, 20).map((stat) => (
-                <tr key={stat.company} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                    <div className="flex items-center gap-2">
-                      <span>{stat.company}</span>
-                      {stat.hasGhosting && (
-                        <div className="p-1 rounded bg-purple-100">
-                          <Ghost className="w-4 h-4 text-gray-900" />
-                        </div>
-                      )}
-                      {stat.hasTerminated && (
-                        <div className="p-1 rounded bg-red-100">
-                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">{stat.count}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_1_30}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_31_60}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_61_90}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_91_120}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_121_plus}</td>
+        {showCompanyCount && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {statsByQuantity.slice(0, 20).map((stat) => (
+                  <tr key={stat.company} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{stat.company}</span>
+                        {stat.hasGhosting && (
+                          <div className="p-1 rounded bg-purple-100">
+                            <Ghost className="w-4 h-4 text-gray-900" />
+                          </div>
+                        )}
+                        {stat.hasTerminated && (
+                          <div className="p-1 rounded bg-red-100">
+                            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">{stat.count}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_1_30}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_31_60}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_61_90}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_91_120}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_121_plus}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Property Breakdown by Dollars */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div 
+          className="p-4 border-b border-gray-200 flex items-center gap-2 cursor-pointer hover:bg-gray-50"
+          onClick={() => setShowPropertyDollars(!showPropertyDollars)}
+        >
+          {showPropertyDollars ? <ChevronDown className="w-5 h-5 text-gray-600" /> : <ChevronRight className="w-5 h-5 text-gray-600" />}
+          <h3 className="text-lg font-semibold text-gray-900">Property Breakdown by Dollars</h3>
         </div>
+        {showPropertyDollars && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase w-8"></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Property</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {propertyStatsByDollars.slice(0, 20).map((stat) => {
+                  const isExpanded = expandedProperties.has(stat.property);
+                  const propertyNote = propertyNotes.get(stat.property);
+                  const propertyInvoices = getPropertyInvoices(stat.property);
+                  
+                  return (
+                    <React.Fragment key={stat.property}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => togglePropertyExpanded(stat.property)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{stat.property}</span>
+                            {propertyNote && (
+                              <StickyNote className="w-4 h-4 text-blue-600" />
+                            )}
+                            {stat.hasGhosting && (
+                              <div className="p-1 rounded bg-purple-100">
+                                <Ghost className="w-4 h-4 text-gray-900" />
+                              </div>
+                            )}
+                            {stat.hasTerminated && (
+                              <div className="p-1 rounded bg-red-100">
+                                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">${Math.round(stat.total).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_1_30).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_31_60).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_61_90).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_91_120).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_121_plus).toLocaleString()}</td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-4 bg-gray-50">
+                            <div className="space-y-4">
+                              {/* Property Note */}
+                              {propertyNote && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                  <div className="flex items-start gap-2">
+                                    <StickyNote className="w-5 h-5 text-blue-600 mt-0.5" />
+                                    <div className="flex-1">
+                                      <div className="font-semibold text-blue-900 mb-1">Property AR Note</div>
+                                      <div className="text-sm text-blue-800 mb-2">{propertyNote.note_text}</div>
+                                      <div className="text-xs text-blue-600">
+                                        By {propertyNote.created_by} • {formatDate(propertyNote.updated_at)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Invoice List */}
+                              <div>
+                                <div className="font-semibold text-gray-900 mb-2">
+                                  Invoices ({propertyInvoices.length})
+                                </div>
+                                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                  <table className="w-full text-sm">
+                                    <thead className="bg-gray-100">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Invoice #</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Company</th>
+                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Due Date</th>
+                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Days Past Due</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                      {propertyInvoices.map(inv => (
+                                        <tr key={inv.invoice_id} className="hover:bg-gray-50">
+                                          <td className="px-3 py-2 text-gray-900">{inv.invoiceNumber}</td>
+                                          <td className="px-3 py-2 text-gray-700">{inv.companyName}</td>
+                                          <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                            ${Math.round(inv.amountRemaining).toLocaleString()}
+                                          </td>
+                                          <td className="px-3 py-2 text-gray-700">{formatDate(inv.dueDate)}</td>
+                                          <td className="px-3 py-2 text-right">
+                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                              inv.pastDue === 0 ? 'bg-blue-100 text-blue-700' :
+                                              inv.pastDue <= 30 ? 'bg-yellow-100 text-yellow-700' :
+                                              inv.pastDue <= 60 ? 'bg-orange-100 text-orange-700' :
+                                              'bg-red-100 text-red-700'
+                                            }`}>
+                                              {inv.pastDue} days
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Property Breakdown by Quantity */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div 
+          className="p-4 border-b border-gray-200 flex items-center gap-2 cursor-pointer hover:bg-gray-50"
+          onClick={() => setShowPropertyCount(!showPropertyCount)}
+        >
+          {showPropertyCount ? <ChevronDown className="w-5 h-5 text-gray-600" /> : <ChevronRight className="w-5 h-5 text-gray-600" />}
+          <h3 className="text-lg font-semibold text-gray-900">Property Breakdown by Invoice Count</h3>
+        </div>
+        {showPropertyCount && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase w-8"></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Property</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {propertyStatsByQuantity.slice(0, 20).map((stat) => {
+                  const isExpanded = expandedProperties.has(stat.property);
+                  const propertyNote = propertyNotes.get(stat.property);
+                  const propertyInvoices = getPropertyInvoices(stat.property);
+                  
+                  return (
+                    <React.Fragment key={stat.property}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => togglePropertyExpanded(stat.property)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{stat.property}</span>
+                            {propertyNote && (
+                              <StickyNote className="w-4 h-4 text-blue-600" />
+                            )}
+                            {stat.hasGhosting && (
+                              <div className="p-1 rounded bg-purple-100">
+                                <Ghost className="w-4 h-4 text-gray-900" />
+                              </div>
+                            )}
+                            {stat.hasTerminated && (
+                              <div className="p-1 rounded bg-red-100">
+                                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">{stat.count}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_1_30}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_31_60}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_61_90}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_91_120}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_121_plus}</td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-4 bg-gray-50">
+                            <div className="space-y-4">
+                              {/* Property Note */}
+                              {propertyNote && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                  <div className="flex items-start gap-2">
+                                    <StickyNote className="w-5 h-5 text-blue-600 mt-0.5" />
+                                    <div className="flex-1">
+                                      <div className="font-semibold text-blue-900 mb-1">Property AR Note</div>
+                                      <div className="text-sm text-blue-800 mb-2">{propertyNote.note_text}</div>
+                                      <div className="text-xs text-blue-600">
+                                        By {propertyNote.created_by} • {formatDate(propertyNote.updated_at)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Invoice List */}
+                              <div>
+                                <div className="font-semibold text-gray-900 mb-2">
+                                  Invoices ({propertyInvoices.length})
+                                </div>
+                                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                  <table className="w-full text-sm">
+                                    <thead className="bg-gray-100">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Invoice #</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Company</th>
+                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Due Date</th>
+                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Days Past Due</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                      {propertyInvoices.map(inv => (
+                                        <tr key={inv.invoice_id} className="hover:bg-gray-50">
+                                          <td className="px-3 py-2 text-gray-900">{inv.invoiceNumber}</td>
+                                          <td className="px-3 py-2 text-gray-700">{inv.companyName}</td>
+                                          <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                            ${Math.round(inv.amountRemaining).toLocaleString()}
+                                          </td>
+                                          <td className="px-3 py-2 text-gray-700">{formatDate(inv.dueDate)}</td>
+                                          <td className="px-3 py-2 text-right">
+                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                              inv.pastDue === 0 ? 'bg-blue-100 text-blue-700' :
+                                              inv.pastDue <= 30 ? 'bg-yellow-100 text-yellow-700' :
+                                              inv.pastDue <= 60 ? 'bg-orange-100 text-orange-700' :
+                                              'bg-red-100 text-red-700'
+                                            }`}>
+                                              {inv.pastDue} days
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
