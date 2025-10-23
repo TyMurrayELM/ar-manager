@@ -715,33 +715,51 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                     <thead className="bg-gray-100">
                                       <tr>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Invoice #</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Opportunity</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Company</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Due Date</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Days Past Due</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Invoice Note</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
-                                      {propertyInvoices.map(inv => (
-                                        <tr key={inv.invoice_id} className="hover:bg-gray-50">
-                                          <td className="px-3 py-2 text-gray-900">{inv.invoiceNumber}</td>
-                                          <td className="px-3 py-2 text-gray-700">{inv.companyName}</td>
-                                          <td className="px-3 py-2 text-right font-semibold text-gray-900">
-                                            ${Math.round(inv.amountRemaining).toLocaleString()}
-                                          </td>
-                                          <td className="px-3 py-2 text-gray-700">{formatDate(inv.dueDate)}</td>
-                                          <td className="px-3 py-2 text-right">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                              inv.pastDue === 0 ? 'bg-blue-100 text-blue-700' :
-                                              inv.pastDue <= 30 ? 'bg-yellow-100 text-yellow-700' :
-                                              inv.pastDue <= 60 ? 'bg-orange-100 text-orange-700' :
-                                              'bg-red-100 text-red-700'
-                                            }`}>
-                                              {inv.pastDue} days
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      ))}
+                                      {propertyInvoices.map(inv => {
+                                        const invoiceNote = inv.notes && inv.notes.length > 0 
+                                          ? inv.notes[inv.notes.length - 1].note_text 
+                                          : null;
+                                        
+                                        return (
+                                          <tr key={inv.invoice_id} className="hover:bg-gray-50">
+                                            <td className="px-3 py-2 text-gray-900">{inv.invoiceNumber}</td>
+                                            <td className="px-3 py-2 text-gray-700">{inv.opportunityName || '-'}</td>
+                                            <td className="px-3 py-2 text-gray-700">{inv.companyName}</td>
+                                            <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                              ${Math.round(inv.amountRemaining).toLocaleString()}
+                                            </td>
+                                            <td className="px-3 py-2 text-gray-700">{formatDate(inv.dueDate)}</td>
+                                            <td className="px-3 py-2 text-right">
+                                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                inv.pastDue === 0 ? 'bg-blue-100 text-blue-700' :
+                                                inv.pastDue <= 30 ? 'bg-yellow-100 text-yellow-700' :
+                                                inv.pastDue <= 60 ? 'bg-orange-100 text-orange-700' :
+                                                'bg-red-100 text-red-700'
+                                              }`}>
+                                                {inv.pastDue} days
+                                              </span>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              {invoiceNote ? (
+                                                <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2 max-w-md">
+                                                  {invoiceNote}
+                                                </div>
+                                              ) : (
+                                                <span className="text-gray-400 italic text-xs">No note</span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 </div>
@@ -857,33 +875,51 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                     <thead className="bg-gray-100">
                                       <tr>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Invoice #</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Opportunity</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Company</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Due Date</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Days Past Due</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Invoice Note</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
-                                      {propertyInvoices.map(inv => (
-                                        <tr key={inv.invoice_id} className="hover:bg-gray-50">
-                                          <td className="px-3 py-2 text-gray-900">{inv.invoiceNumber}</td>
-                                          <td className="px-3 py-2 text-gray-700">{inv.companyName}</td>
-                                          <td className="px-3 py-2 text-right font-semibold text-gray-900">
-                                            ${Math.round(inv.amountRemaining).toLocaleString()}
-                                          </td>
-                                          <td className="px-3 py-2 text-gray-700">{formatDate(inv.dueDate)}</td>
-                                          <td className="px-3 py-2 text-right">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                              inv.pastDue === 0 ? 'bg-blue-100 text-blue-700' :
-                                              inv.pastDue <= 30 ? 'bg-yellow-100 text-yellow-700' :
-                                              inv.pastDue <= 60 ? 'bg-orange-100 text-orange-700' :
-                                              'bg-red-100 text-red-700'
-                                            }`}>
-                                              {inv.pastDue} days
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      ))}
+                                      {propertyInvoices.map(inv => {
+                                        const invoiceNote = inv.notes && inv.notes.length > 0 
+                                          ? inv.notes[inv.notes.length - 1].note_text 
+                                          : null;
+                                        
+                                        return (
+                                          <tr key={inv.invoice_id} className="hover:bg-gray-50">
+                                            <td className="px-3 py-2 text-gray-900">{inv.invoiceNumber}</td>
+                                            <td className="px-3 py-2 text-gray-700">{inv.opportunityName || '-'}</td>
+                                            <td className="px-3 py-2 text-gray-700">{inv.companyName}</td>
+                                            <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                              ${Math.round(inv.amountRemaining).toLocaleString()}
+                                            </td>
+                                            <td className="px-3 py-2 text-gray-700">{formatDate(inv.dueDate)}</td>
+                                            <td className="px-3 py-2 text-right">
+                                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                inv.pastDue === 0 ? 'bg-blue-100 text-blue-700' :
+                                                inv.pastDue <= 30 ? 'bg-yellow-100 text-yellow-700' :
+                                                inv.pastDue <= 60 ? 'bg-orange-100 text-orange-700' :
+                                                'bg-red-100 text-red-700'
+                                              }`}>
+                                                {inv.pastDue} days
+                                              </span>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              {invoiceNote ? (
+                                                <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2 max-w-md">
+                                                  {invoiceNote}
+                                                </div>
+                                              ) : (
+                                                <span className="text-gray-400 italic text-xs">No note</span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 </div>
