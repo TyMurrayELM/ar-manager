@@ -68,6 +68,18 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
   
   // Expanded property rows for showing notes and invoice details
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
+  
+  // Sorting states for company breakdowns
+  const [companyDollarsSortColumn, setCompanyDollarsSortColumn] = useState<'total' | 'aging_1_30' | 'aging_31_60' | 'aging_61_90' | 'aging_91_120' | 'aging_121_plus'>('total');
+  const [companyDollarsSortDirection, setCompanyDollarsSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [companyCountSortColumn, setCompanyCountSortColumn] = useState<'count' | 'count_1_30' | 'count_31_60' | 'count_61_90' | 'count_91_120' | 'count_121_plus'>('count');
+  const [companyCountSortDirection, setCompanyCountSortDirection] = useState<'asc' | 'desc'>('desc');
+  
+  // Sorting states for property breakdowns
+  const [propertyDollarsSortColumn, setPropertyDollarsSortColumn] = useState<'total' | 'aging_1_30' | 'aging_31_60' | 'aging_61_90' | 'aging_91_120' | 'aging_121_plus'>('total');
+  const [propertyDollarsSortDirection, setPropertyDollarsSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [propertyCountSortColumn, setPropertyCountSortColumn] = useState<'count' | 'count_1_30' | 'count_31_60' | 'count_61_90' | 'count_91_120' | 'count_121_plus'>('count');
+  const [propertyCountSortDirection, setPropertyCountSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Filter by region first
   const regionFilteredInvoices = invoices.filter(inv => {
@@ -119,6 +131,74 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
     });
   };
 
+  // Sorting handler for Company Breakdown by Dollars
+  const handleCompanyDollarsSort = (column: typeof companyDollarsSortColumn) => {
+    if (companyDollarsSortColumn === column) {
+      // Toggle direction if clicking same column
+      setCompanyDollarsSortDirection(companyDollarsSortDirection === 'desc' ? 'asc' : 'desc');
+    } else {
+      // New column, default to descending
+      setCompanyDollarsSortColumn(column);
+      setCompanyDollarsSortDirection('desc');
+    }
+  };
+
+  // Sorting handler for Company Breakdown by Quantity
+  const handleCompanyCountSort = (column: typeof companyCountSortColumn) => {
+    if (companyCountSortColumn === column) {
+      // Toggle direction if clicking same column
+      setCompanyCountSortDirection(companyCountSortDirection === 'desc' ? 'asc' : 'desc');
+    } else {
+      // New column, default to descending
+      setCompanyCountSortColumn(column);
+      setCompanyCountSortDirection('desc');
+    }
+  };
+
+  // Sorting handler for Property Breakdown by Dollars
+  const handlePropertyDollarsSort = (column: typeof propertyDollarsSortColumn) => {
+    if (propertyDollarsSortColumn === column) {
+      // Toggle direction if clicking same column
+      setPropertyDollarsSortDirection(propertyDollarsSortDirection === 'desc' ? 'asc' : 'desc');
+    } else {
+      // New column, default to descending
+      setPropertyDollarsSortColumn(column);
+      setPropertyDollarsSortDirection('desc');
+    }
+  };
+
+  // Sorting handler for Property Breakdown by Quantity
+  const handlePropertyCountSort = (column: typeof propertyCountSortColumn) => {
+    if (propertyCountSortColumn === column) {
+      // Toggle direction if clicking same column
+      setPropertyCountSortDirection(propertyCountSortDirection === 'desc' ? 'asc' : 'desc');
+    } else {
+      // New column, default to descending
+      setPropertyCountSortColumn(column);
+      setPropertyCountSortDirection('desc');
+    }
+  };
+
+  // Sort icon component
+  const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | 'desc' }) => {
+    if (!active) {
+      return (
+        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
+    return direction === 'desc' ? (
+      <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    ) : (
+      <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+      </svg>
+    );
+  };
+
   // Calculate company stats
   const companyStatsMap = new Map<string, CompanyStats>();
   
@@ -162,8 +242,16 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
   });
 
   const companyStats = Array.from(companyStatsMap.values());
-  const statsByDollars = [...companyStats].sort((a, b) => b.total - a.total);
-  const statsByQuantity = [...companyStats].sort((a, b) => b.count - a.count);
+  const statsByDollars = [...companyStats].sort((a, b) => {
+    const aVal = a[companyDollarsSortColumn];
+    const bVal = b[companyDollarsSortColumn];
+    return companyDollarsSortDirection === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+  const statsByQuantity = [...companyStats].sort((a, b) => {
+    const aVal = a[companyCountSortColumn];
+    const bVal = b[companyCountSortColumn];
+    return companyCountSortDirection === 'desc' ? bVal - aVal : aVal - bVal;
+  });
 
   // Calculate property stats
   const propertyStatsMap = new Map<string, PropertyStats>();
@@ -210,8 +298,20 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
   });
 
   const propertyStats = Array.from(propertyStatsMap.values());
-  const propertyStatsByDollars = [...propertyStats].sort((a, b) => b.total - a.total);
-  const propertyStatsByQuantity = [...propertyStats].sort((a, b) => b.count - a.count);
+  
+  // Apply sorting for Property Breakdown by Dollars
+  const propertyStatsByDollars = [...propertyStats].sort((a, b) => {
+    const aVal = a[propertyDollarsSortColumn];
+    const bVal = b[propertyDollarsSortColumn];
+    return propertyDollarsSortDirection === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+  
+  // Apply sorting for Property Breakdown by Quantity
+  const propertyStatsByQuantity = [...propertyStats].sort((a, b) => {
+    const aVal = a[propertyCountSortColumn];
+    const bVal = b[propertyCountSortColumn];
+    return propertyCountSortDirection === 'desc' ? bVal - aVal : aVal - bVal;
+  });
 
   // Calculate aging bucket totals
   const agingTotals = {
@@ -518,12 +618,60 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyDollarsSort('total')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Total
+                      <SortIcon active={companyDollarsSortColumn === 'total'} direction={companyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyDollarsSort('aging_1_30')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      1-30 Days
+                      <SortIcon active={companyDollarsSortColumn === 'aging_1_30'} direction={companyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyDollarsSort('aging_31_60')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      31-60 Days
+                      <SortIcon active={companyDollarsSortColumn === 'aging_31_60'} direction={companyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyDollarsSort('aging_61_90')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      61-90 Days
+                      <SortIcon active={companyDollarsSortColumn === 'aging_61_90'} direction={companyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyDollarsSort('aging_91_120')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      91-120 Days
+                      <SortIcon active={companyDollarsSortColumn === 'aging_91_120'} direction={companyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyDollarsSort('aging_121_plus')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      121+ Days
+                      <SortIcon active={companyDollarsSortColumn === 'aging_121_plus'} direction={companyDollarsSortDirection} />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -575,12 +723,60 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyCountSort('count')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Total
+                      <SortIcon active={companyCountSortColumn === 'count'} direction={companyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyCountSort('count_1_30')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      1-30 Days
+                      <SortIcon active={companyCountSortColumn === 'count_1_30'} direction={companyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyCountSort('count_31_60')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      31-60 Days
+                      <SortIcon active={companyCountSortColumn === 'count_31_60'} direction={companyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyCountSort('count_61_90')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      61-90 Days
+                      <SortIcon active={companyCountSortColumn === 'count_61_90'} direction={companyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyCountSort('count_91_120')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      91-120 Days
+                      <SortIcon active={companyCountSortColumn === 'count_91_120'} direction={companyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleCompanyCountSort('count_121_plus')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      121+ Days
+                      <SortIcon active={companyCountSortColumn === 'count_121_plus'} direction={companyCountSortDirection} />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -633,12 +829,60 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase w-8"></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Property</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyDollarsSort('total')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Total
+                      <SortIcon active={propertyDollarsSortColumn === 'total'} direction={propertyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyDollarsSort('aging_1_30')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      1-30 Days
+                      <SortIcon active={propertyDollarsSortColumn === 'aging_1_30'} direction={propertyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyDollarsSort('aging_31_60')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      31-60 Days
+                      <SortIcon active={propertyDollarsSortColumn === 'aging_31_60'} direction={propertyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyDollarsSort('aging_61_90')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      61-90 Days
+                      <SortIcon active={propertyDollarsSortColumn === 'aging_61_90'} direction={propertyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyDollarsSort('aging_91_120')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      91-120 Days
+                      <SortIcon active={propertyDollarsSortColumn === 'aging_91_120'} direction={propertyDollarsSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyDollarsSort('aging_121_plus')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      121+ Days
+                      <SortIcon active={propertyDollarsSortColumn === 'aging_121_plus'} direction={propertyDollarsSortDirection} />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -725,8 +969,8 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                       {propertyInvoices.map(inv => {
-                                        const invoiceNote = inv.notes && inv.notes.length > 0 
-                                          ? inv.notes[inv.notes.length - 1].note_text 
+                                        const latestNote = inv.notes && inv.notes.length > 0 
+                                          ? inv.notes[inv.notes.length - 1]
                                           : null;
                                         
                                         return (
@@ -749,9 +993,12 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                               </span>
                                             </td>
                                             <td className="px-3 py-2">
-                                              {invoiceNote ? (
+                                              {latestNote ? (
                                                 <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2 max-w-md">
-                                                  {invoiceNote}
+                                                  <div className="mb-1">{latestNote.note_text}</div>
+                                                  <div className="text-[10px] text-blue-600">
+                                                    By {latestNote.created_by} • {formatDate(latestNote.created_at)}
+                                                  </div>
                                                 </div>
                                               ) : (
                                                 <span className="text-gray-400 italic text-xs">No note</span>
@@ -793,12 +1040,60 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase w-8"></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Property</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">91-120 Days</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">121+ Days</th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyCountSort('count')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Total
+                      <SortIcon active={propertyCountSortColumn === 'count'} direction={propertyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyCountSort('count_1_30')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      1-30 Days
+                      <SortIcon active={propertyCountSortColumn === 'count_1_30'} direction={propertyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyCountSort('count_31_60')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      31-60 Days
+                      <SortIcon active={propertyCountSortColumn === 'count_31_60'} direction={propertyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyCountSort('count_61_90')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      61-90 Days
+                      <SortIcon active={propertyCountSortColumn === 'count_61_90'} direction={propertyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyCountSort('count_91_120')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      91-120 Days
+                      <SortIcon active={propertyCountSortColumn === 'count_91_120'} direction={propertyCountSortDirection} />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handlePropertyCountSort('count_121_plus')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      121+ Days
+                      <SortIcon active={propertyCountSortColumn === 'count_121_plus'} direction={propertyCountSortDirection} />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -885,8 +1180,8 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                       {propertyInvoices.map(inv => {
-                                        const invoiceNote = inv.notes && inv.notes.length > 0 
-                                          ? inv.notes[inv.notes.length - 1].note_text 
+                                        const latestNote = inv.notes && inv.notes.length > 0 
+                                          ? inv.notes[inv.notes.length - 1]
                                           : null;
                                         
                                         return (
@@ -909,9 +1204,12 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                               </span>
                                             </td>
                                             <td className="px-3 py-2">
-                                              {invoiceNote ? (
+                                              {latestNote ? (
                                                 <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2 max-w-md">
-                                                  {invoiceNote}
+                                                  <div className="mb-1">{latestNote.note_text}</div>
+                                                  <div className="text-[10px] text-blue-600">
+                                                    By {latestNote.created_by} • {formatDate(latestNote.created_at)}
+                                                  </div>
                                                 </div>
                                               ) : (
                                                 <span className="text-gray-400 italic text-xs">No note</span>
