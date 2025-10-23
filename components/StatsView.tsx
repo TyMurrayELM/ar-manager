@@ -69,6 +69,9 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
   // Expanded property rows for showing notes and invoice details
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
   
+  // Expanded company rows for showing property breakdown
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
+  
   // Sorting states for company breakdowns
   const [companyDollarsSortColumn, setCompanyDollarsSortColumn] = useState<'total' | 'aging_1_30' | 'aging_31_60' | 'aging_61_90' | 'aging_91_120' | 'aging_121_plus'>('total');
   const [companyDollarsSortDirection, setCompanyDollarsSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -129,6 +132,67 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
       }
       return newSet;
     });
+  };
+
+  const toggleCompanyExpanded = (company: string) => {
+    setExpandedCompanies(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(company)) {
+        newSet.delete(company);
+      } else {
+        newSet.add(company);
+      }
+      return newSet;
+    });
+  };
+
+  // Get properties for a specific company
+  const getCompanyProperties = (companyName: string) => {
+    const companyInvoices = filteredInvoices.filter(inv => inv.companyName === companyName);
+    const propertyStatsMap = new Map<string, PropertyStats>();
+    
+    companyInvoices.forEach(inv => {
+      if (!inv.propertyName) return;
+      
+      const existing = propertyStatsMap.get(inv.propertyName) || {
+        property: inv.propertyName,
+        total: 0,
+        count: 0,
+        aging_1_30: 0,
+        aging_31_60: 0,
+        aging_61_90: 0,
+        aging_91_120: 0,
+        aging_121_plus: 0,
+        count_1_30: 0,
+        count_31_60: 0,
+        count_61_90: 0,
+        count_91_120: 0,
+        count_121_plus: 0,
+        hasGhosting: false,
+        hasTerminated: false
+      };
+
+      existing.total += inv.amountRemaining;
+      existing.count += 1;
+      existing.aging_1_30 += inv.aging_1_30;
+      existing.aging_31_60 += inv.aging_31_60;
+      existing.aging_61_90 += inv.aging_61_90;
+      existing.aging_91_120 += inv.aging_91_120;
+      existing.aging_121_plus += inv.aging_121_plus;
+      
+      if (inv.aging_1_30 > 0) existing.count_1_30 += 1;
+      if (inv.aging_31_60 > 0) existing.count_31_60 += 1;
+      if (inv.aging_61_90 > 0) existing.count_61_90 += 1;
+      if (inv.aging_91_120 > 0) existing.count_91_120 += 1;
+      if (inv.aging_121_plus > 0) existing.count_121_plus += 1;
+      
+      if (inv.isGhosting) existing.hasGhosting = true;
+      if (inv.isTerminated) existing.hasTerminated = true;
+
+      propertyStatsMap.set(inv.propertyName, existing);
+    });
+
+    return Array.from(propertyStatsMap.values()).sort((a, b) => b.total - a.total);
   };
 
   // Sorting handler for Company Breakdown by Dollars
@@ -617,6 +681,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase w-8"></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
                   <th 
                     className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
@@ -675,9 +740,22 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {statsByDollars.slice(0, 20).map((stat) => (
-                  <tr key={stat.company} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                {statsByDollars.slice(0, 20).map((stat) => {
+                  const isExpanded = expandedCompanies.has(stat.company);
+                  const companyProperties = isExpanded ? getCompanyProperties(stat.company) : [];
+                  
+                  return (
+                    <React.Fragment key={stat.company}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => toggleCompanyExpanded(stat.company)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
                       <div className="flex items-center gap-2">
                         <span>{stat.company}</span>
                         {stat.hasGhosting && (
@@ -700,8 +778,63 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                     <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_61_90).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_91_120).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-700">${Math.round(stat.aging_121_plus).toLocaleString()}</td>
-                  </tr>
-                ))}
+                      </tr>
+                      {isExpanded && companyProperties.length > 0 && (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-4 bg-gray-50">
+                            <div className="ml-8">
+                              <div className="font-semibold text-gray-700 mb-2 text-sm">
+                                Properties ({companyProperties.length})
+                              </div>
+                              <table className="w-full text-sm bg-white rounded border border-gray-200">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Property</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Total</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">1-30 Days</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">31-60 Days</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">61-90 Days</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">91-120 Days</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">121+ Days</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                  {companyProperties.map(prop => (
+                                    <tr key={prop.property} className="hover:bg-gray-50">
+                                      <td className="px-3 py-2 text-gray-900">
+                                        <div className="flex items-center gap-2">
+                                          {prop.property}
+                                          {prop.hasGhosting && (
+                                            <div className="p-1 rounded bg-purple-100">
+                                              <Ghost className="w-3 h-3 text-gray-900" />
+                                            </div>
+                                          )}
+                                          {prop.hasTerminated && (
+                                            <div className="p-1 rounded bg-red-100">
+                                              <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                              </svg>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-semibold">${Math.round(prop.total).toLocaleString()}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_1_30).toLocaleString()}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_31_60).toLocaleString()}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_61_90).toLocaleString()}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_91_120).toLocaleString()}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_121_plus).toLocaleString()}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -722,6 +855,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase w-8"></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
                   <th 
                     className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none"
@@ -780,9 +914,22 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {statsByQuantity.slice(0, 20).map((stat) => (
-                  <tr key={stat.company} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                {statsByQuantity.slice(0, 20).map((stat) => {
+                  const isExpanded = expandedCompanies.has(stat.company);
+                  const companyProperties = isExpanded ? getCompanyProperties(stat.company) : [];
+                  
+                  return (
+                    <React.Fragment key={stat.company}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => toggleCompanyExpanded(stat.company)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
                       <div className="flex items-center gap-2">
                         <span>{stat.company}</span>
                         {stat.hasGhosting && (
@@ -805,8 +952,63 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                     <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_61_90}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_91_120}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-700">{stat.count_121_plus}</td>
-                  </tr>
-                ))}
+                      </tr>
+                      {isExpanded && companyProperties.length > 0 && (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-4 bg-gray-50">
+                            <div className="ml-8">
+                              <div className="font-semibold text-gray-700 mb-2 text-sm">
+                                Properties ({companyProperties.length})
+                              </div>
+                              <table className="w-full text-sm bg-white rounded border border-gray-200">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Property</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Total</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">1-30 Days</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">31-60 Days</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">61-90 Days</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">91-120 Days</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">121+ Days</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                  {companyProperties.map(prop => (
+                                    <tr key={prop.property} className="hover:bg-gray-50">
+                                      <td className="px-3 py-2 text-gray-900">
+                                        <div className="flex items-center gap-2">
+                                          {prop.property}
+                                          {prop.hasGhosting && (
+                                            <div className="p-1 rounded bg-purple-100">
+                                              <Ghost className="w-3 h-3 text-gray-900" />
+                                            </div>
+                                          )}
+                                          {prop.hasTerminated && (
+                                            <div className="p-1 rounded bg-red-100">
+                                              <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                              </svg>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-semibold">{prop.count}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">{prop.count_1_30}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">{prop.count_31_60}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">{prop.count_61_90}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">{prop.count_91_120}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700">{prop.count_121_plus}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
