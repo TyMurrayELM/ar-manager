@@ -969,8 +969,9 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                       {propertyInvoices.map(inv => {
+                                        // FIXED: Notes are loaded with order by created_at DESC (newest first), so index [0] is the most recent note
                                         const latestNote = inv.notes && inv.notes.length > 0 
-                                          ? inv.notes[inv.notes.length - 1]
+                                          ? inv.notes[0]
                                           : null;
                                         
                                         return (
@@ -1180,8 +1181,9 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                       {propertyInvoices.map(inv => {
+                                        // FIXED: Notes are loaded with order by created_at DESC (newest first), so index [0] is the most recent note
                                         const latestNote = inv.notes && inv.notes.length > 0 
-                                          ? inv.notes[inv.notes.length - 1]
+                                          ? inv.notes[0]
                                           : null;
                                         
                                         return (
