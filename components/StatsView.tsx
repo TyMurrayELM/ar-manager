@@ -61,10 +61,10 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
   
   // Collapsible section states
   const [showFlowChart, setShowFlowChart] = useState(true);
-  const [showCompanyDollars, setShowCompanyDollars] = useState(true);
-  const [showCompanyCount, setShowCompanyCount] = useState(true);
-  const [showPropertyDollars, setShowPropertyDollars] = useState(true);
-  const [showPropertyCount, setShowPropertyCount] = useState(true);
+  const [showCompanyDollars, setShowCompanyDollars] = useState(false);
+  const [showCompanyCount, setShowCompanyCount] = useState(false);
+  const [showPropertyDollars, setShowPropertyDollars] = useState(false);
+  const [showPropertyCount, setShowPropertyCount] = useState(false);
   
   // Expanded property rows for showing notes and invoice details
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
