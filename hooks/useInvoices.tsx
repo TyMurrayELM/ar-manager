@@ -672,6 +672,9 @@ export function useInvoices() {
       if (!inv.branchName?.toLowerCase().includes('vegas') && !inv.branchName?.toLowerCase().includes('las vegas')) return false;
     }
     
+    // FIXED: Filter out current invoices if toggle is off
+    if (!showCurrentInvoices && inv.pastDue <= 0) return false;
+    
     if (selectedBucket === 'all') return inv.amountRemaining > 0;
     
     switch(selectedBucket) {
