@@ -790,6 +790,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                 <thead className="bg-gray-100">
                                   <tr>
                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Property</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Primary Contact</th>
                                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Total</th>
                                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">1-30 Days</th>
                                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">31-60 Days</th>
@@ -799,7 +800,14 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                  {companyProperties.map(prop => (
+                                  {companyProperties.map(prop => {
+                                    // Get a representative primary contact for this property
+                                    const propertyInvoice = filteredInvoices.find(inv => 
+                                      inv.companyName === stat.company && inv.propertyName === prop.property
+                                    );
+                                    const primaryContact = propertyInvoice?.primaryContactName || '-';
+                                    
+                                    return (
                                     <tr key={prop.property} className="hover:bg-gray-50">
                                       <td className="px-3 py-2 text-gray-900">
                                         <div className="flex items-center gap-2">
@@ -818,6 +826,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                           )}
                                         </div>
                                       </td>
+                                      <td className="px-3 py-2 text-gray-700">{primaryContact}</td>
                                       <td className="px-3 py-2 text-right font-semibold">${Math.round(prop.total).toLocaleString()}</td>
                                       <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_1_30).toLocaleString()}</td>
                                       <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_31_60).toLocaleString()}</td>
@@ -825,7 +834,8 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                       <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_91_120).toLocaleString()}</td>
                                       <td className="px-3 py-2 text-right text-gray-700">${Math.round(prop.aging_121_plus).toLocaleString()}</td>
                                     </tr>
-                                  ))}
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </div>
@@ -964,6 +974,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                 <thead className="bg-gray-100">
                                   <tr>
                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Property</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Primary Contact</th>
                                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Total</th>
                                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">1-30 Days</th>
                                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">31-60 Days</th>
@@ -973,7 +984,14 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                  {companyProperties.map(prop => (
+                                  {companyProperties.map(prop => {
+                                    // Get a representative primary contact for this property
+                                    const propertyInvoice = filteredInvoices.find(inv => 
+                                      inv.companyName === stat.company && inv.propertyName === prop.property
+                                    );
+                                    const primaryContact = propertyInvoice?.primaryContactName || '-';
+                                    
+                                    return (
                                     <tr key={prop.property} className="hover:bg-gray-50">
                                       <td className="px-3 py-2 text-gray-900">
                                         <div className="flex items-center gap-2">
@@ -992,6 +1010,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                           )}
                                         </div>
                                       </td>
+                                      <td className="px-3 py-2 text-gray-700">{primaryContact}</td>
                                       <td className="px-3 py-2 text-right font-semibold">{prop.count}</td>
                                       <td className="px-3 py-2 text-right text-gray-700">{prop.count_1_30}</td>
                                       <td className="px-3 py-2 text-right text-gray-700">{prop.count_31_60}</td>
@@ -999,7 +1018,8 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                       <td className="px-3 py-2 text-right text-gray-700">{prop.count_91_120}</td>
                                       <td className="px-3 py-2 text-right text-gray-700">{prop.count_121_plus}</td>
                                     </tr>
-                                  ))}
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </div>
