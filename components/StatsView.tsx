@@ -1163,6 +1163,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Invoice #</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Opportunity</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Company</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Primary Contact</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Due Date</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Days Past Due</th>
@@ -1181,6 +1182,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                             <td className="px-3 py-2 text-gray-900">{inv.invoiceNumber}</td>
                                             <td className="px-3 py-2 text-gray-700">{inv.opportunityName || '-'}</td>
                                             <td className="px-3 py-2 text-gray-700">{inv.companyName}</td>
+                                            <td className="px-3 py-2 text-gray-700">{inv.primaryContactName || '-'}</td>
                                             <td className="px-3 py-2 text-right font-semibold text-gray-900">
                                               ${Math.round(inv.amountRemaining).toLocaleString()}
                                             </td>
@@ -1375,6 +1377,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Invoice #</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Opportunity</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Company</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Primary Contact</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Due Date</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Days Past Due</th>
@@ -1393,6 +1396,7 @@ export default function StatsView({ invoices, selectedRegion, propertyNotes }: S
                                             <td className="px-3 py-2 text-gray-900">{inv.invoiceNumber}</td>
                                             <td className="px-3 py-2 text-gray-700">{inv.opportunityName || '-'}</td>
                                             <td className="px-3 py-2 text-gray-700">{inv.companyName}</td>
+                                            <td className="px-3 py-2 text-gray-700">{inv.primaryContactName || '-'}</td>
                                             <td className="px-3 py-2 text-right font-semibold text-gray-900">
                                               ${Math.round(inv.amountRemaining).toLocaleString()}
                                             </td>
