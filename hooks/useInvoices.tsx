@@ -277,6 +277,7 @@ export function useInvoices() {
         isGhosting: row.is_ghosting || false,
         isTerminated: row.is_terminated || false,
         paymentStatus: row.payment_status || 'No Follow Up',
+        followUpAttempt: row.follow_up_attempt ?? null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         notes: []
@@ -1117,6 +1118,32 @@ export function useInvoices() {
     }
   };
 
+  const updateFollowUpAttempt = async (invoiceId: number, attempt: number | null) => {
+    try {
+      const { error } = await supabase
+        .from('ar_aging_invoices')
+        .update({ follow_up_attempt: attempt })
+        .eq('invoice_id', invoiceId);
+
+      if (error) {
+        console.error('Error updating follow up attempt:', error);
+        alert('Failed to update follow up attempt. Please try again.');
+        return;
+      }
+
+      setInvoices(prev => prev.map(inv =>
+        inv.invoice_id === invoiceId
+          ? { ...inv, followUpAttempt: attempt }
+          : inv
+      ));
+
+      console.log('✅ Follow up attempt updated to:', attempt);
+    } catch (error) {
+      console.error('Error in updateFollowUpAttempt:', error);
+      alert('Failed to update follow up attempt. Please try again.');
+    }
+  };
+
   return {
     invoices,
     filteredInvoices,
@@ -1159,6 +1186,7 @@ export function useInvoices() {
     toggleGhosting,
     toggleTerminated,
     updatePaymentStatus,
+    updateFollowUpAttempt,
     createSnapshot,
     loadSnapshots
   };

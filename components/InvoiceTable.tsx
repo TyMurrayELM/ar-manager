@@ -40,6 +40,7 @@ interface InvoiceTableProps {
   onToggleGhosting: (invoiceId: number, currentStatus: boolean) => void;
   onToggleTerminated: (invoiceId: number, currentStatus: boolean) => void;
   onUpdatePaymentStatus: (invoiceId: number, status: PaymentStatus) => void;
+  onUpdateFollowUpAttempt: (invoiceId: number, attempt: number | null) => void;
   onAddPropertyNote: (propertyName: string) => void;
   onEditPropertyNote: (propertyName: string, noteText: string) => void;
   onDeletePropertyNote: (propertyName: string) => void;
@@ -98,6 +99,7 @@ export default function InvoiceTable({
   onToggleGhosting,
   onToggleTerminated,
   onUpdatePaymentStatus,
+  onUpdateFollowUpAttempt,
   onAddPropertyNote,
   onEditPropertyNote,
   onDeletePropertyNote
@@ -124,6 +126,7 @@ export default function InvoiceTable({
     | 'dueDate'
     | 'pastDue'
     | 'paymentStatus'
+    | 'followUpAttempt'
     | 'isGhosting'
     | 'isTerminated';
   const [sortKey, setSortKey] = useState<SortKey>('companyName');
@@ -157,6 +160,10 @@ export default function InvoiceTable({
         case 'paymentStatus':
           av = a.paymentStatus || 'No Follow Up';
           bv = b.paymentStatus || 'No Follow Up';
+          break;
+        case 'followUpAttempt':
+          av = a.followUpAttempt ?? 0;
+          bv = b.followUpAttempt ?? 0;
           break;
         case 'isGhosting':
         case 'isTerminated':
@@ -576,6 +583,7 @@ ar@encorelm.com`;
               <SortHeader label="Due Date" sortKey="dueDate" />
               <SortHeader label="Days Past Due" sortKey="pastDue" />
               <SortHeader label="Payment Status" sortKey="paymentStatus" />
+              <SortHeader label="Follow Up Attempt" sortKey="followUpAttempt" />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Activity</th>
               <SortHeader label="Client Ghosting" sortKey="isGhosting" align="center" />
               <SortHeader label="Terminated Property" sortKey="isTerminated" align="center" />
@@ -647,6 +655,18 @@ ar@encorelm.com`;
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-4">
+                      <select
+                        value={invoice.followUpAttempt ?? ''}
+                        onChange={(e) => onUpdateFollowUpAttempt(invoice.invoice_id, e.target.value === '' ? null : Number(e.target.value))}
+                        className="px-2 py-1 rounded text-xs font-medium border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                      >
+                        <option value="">—</option>
+                        {[1, 2, 3, 4, 5, 6].map(n => (
+                          <option key={n} value={n}>FU {n}</option>
                         ))}
                       </select>
                     </td>

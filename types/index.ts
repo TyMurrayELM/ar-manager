@@ -27,6 +27,7 @@ export interface Invoice {
   isGhosting?: boolean;
   isTerminated?: boolean;
   paymentStatus?: string;
+  followUpAttempt?: number | null;
   createdAt?: string;
   updatedAt?: string;
   notes: InvoiceNote[];

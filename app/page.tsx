@@ -38,7 +38,7 @@ export default function ARManagementApp() {
   const [showPropertyNoteModal, setShowPropertyNoteModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [selectedPropertyForNote, setSelectedPropertyForNote] = useState<string | null>(null);
-  const [showPieCharts, setShowPieCharts] = useState(true);
+  const [showPieCharts, setShowPieCharts] = useState(false);
   const [propertyNotes, setPropertyNotes] = useState<Map<string, PropertyNote>>(new Map());
 
   // Redirect to login if not authenticated
@@ -89,6 +89,7 @@ export default function ARManagementApp() {
     toggleGhosting,
     toggleTerminated,
     updatePaymentStatus,
+    updateFollowUpAttempt,
     createSnapshot
   } = useInvoices();
 
@@ -383,6 +384,7 @@ export default function ARManagementApp() {
               onToggleGhosting={toggleGhosting}
               onToggleTerminated={toggleTerminated}
               onUpdatePaymentStatus={updatePaymentStatus}
+              onUpdateFollowUpAttempt={updateFollowUpAttempt}
               onAddPropertyNote={handleOpenPropertyNoteModal}
               onEditPropertyNote={handleEditPropertyNote}
               onDeletePropertyNote={handleDeletePropertyNote}
