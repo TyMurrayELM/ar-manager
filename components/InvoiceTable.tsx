@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, MessageSquare, Pencil, Trash2, Calendar, FileText, CheckCircle2, Ghost, StickyNote } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, MessageSquare, Pencil, Trash2, Calendar, FileText, CheckCircle2, Ghost, StickyNote, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { Invoice, InvoiceNote, HistoryItem, PaymentStatus } from '@/types';
 import { formatCurrency, formatDate, getBranchColor } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -113,6 +113,89 @@ export default function InvoiceTable({
   const [editingPropertyNote, setEditingPropertyNote] = useState<string | null>(null);
   const [editingPropertyNoteText, setEditingPropertyNoteText] = useState('');
   const [hoveredPropertyNote, setHoveredPropertyNote] = useState<string | null>(null);
+
+  type SortKey =
+    | 'invoiceNumber'
+    | 'companyName'
+    | 'propertyName'
+    | 'opportunityName'
+    | 'branchName'
+    | 'amountRemaining'
+    | 'dueDate'
+    | 'pastDue'
+    | 'paymentStatus'
+    | 'isGhosting'
+    | 'isTerminated';
+  const [sortKey, setSortKey] = useState<SortKey>('companyName');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedInvoices = useMemo(() => {
+    const arr = [...invoices];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    arr.sort((a, b) => {
+      let av: unknown;
+      let bv: unknown;
+      switch (sortKey) {
+        case 'amountRemaining':
+        case 'pastDue':
+          av = (a as unknown as Record<string, number>)[sortKey] ?? 0;
+          bv = (b as unknown as Record<string, number>)[sortKey] ?? 0;
+          break;
+        case 'dueDate':
+          av = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+          bv = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+          break;
+        case 'paymentStatus':
+          av = a.paymentStatus || 'No Follow Up';
+          bv = b.paymentStatus || 'No Follow Up';
+          break;
+        case 'isGhosting':
+        case 'isTerminated':
+          av = (a as unknown as Record<string, boolean>)[sortKey] ? 1 : 0;
+          bv = (b as unknown as Record<string, boolean>)[sortKey] ? 1 : 0;
+          break;
+        default:
+          av = (a as unknown as Record<string, unknown>)[sortKey] ?? '';
+          bv = (b as unknown as Record<string, unknown>)[sortKey] ?? '';
+      }
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' }) * dir;
+    });
+    return arr;
+  }, [invoices, sortKey, sortDir]);
+
+  const SortHeader = ({
+    label,
+    sortKey: key,
+    align = 'left',
+  }: {
+    label: string;
+    sortKey: SortKey;
+    align?: 'left' | 'center';
+  }) => {
+    const active = sortKey === key;
+    const Icon = active ? (sortDir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+    return (
+      <th
+        onClick={() => handleSort(key)}
+        className={`px-4 py-3 text-${align} text-xs font-medium text-gray-600 uppercase cursor-pointer select-none hover:bg-blue-100`}
+      >
+        <span className={`inline-flex items-center gap-1 ${align === 'center' ? 'justify-center' : ''}`}>
+          {label}
+          <Icon className={`w-3 h-3 ${active ? 'text-blue-600' : 'text-gray-400'}`} />
+        </span>
+      </th>
+    );
+  };
 
   const getInvoiceHistory = (invoice: Invoice): HistoryItem[] => {
     const history: HistoryItem[] = [];
@@ -484,24 +567,24 @@ ar@encorelm.com`;
         <table className="w-full">
           <thead className="bg-blue-50 border-b border-blue-200 sticky top-0 z-10">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Invoice #</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Company</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Property</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Opportunity</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Branch</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Amount Due</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Due Date</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Days Past Due</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Payment Status</th>
+              <SortHeader label="Invoice #" sortKey="invoiceNumber" />
+              <SortHeader label="Company" sortKey="companyName" />
+              <SortHeader label="Property" sortKey="propertyName" />
+              <SortHeader label="Opportunity" sortKey="opportunityName" />
+              <SortHeader label="Branch" sortKey="branchName" />
+              <SortHeader label="Amount Due" sortKey="amountRemaining" />
+              <SortHeader label="Due Date" sortKey="dueDate" />
+              <SortHeader label="Days Past Due" sortKey="pastDue" />
+              <SortHeader label="Payment Status" sortKey="paymentStatus" />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Activity</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Client Ghosting</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Terminated Property</th>
+              <SortHeader label="Client Ghosting" sortKey="isGhosting" align="center" />
+              <SortHeader label="Terminated Property" sortKey="isTerminated" align="center" />
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Property AR Notes</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {invoices.map((invoice) => {
+            {sortedInvoices.map((invoice) => {
               const isExpanded = expandedRows.has(invoice.invoice_id);
               const history = getInvoiceHistory(invoice);
               const hasHistory = history.length > 0;

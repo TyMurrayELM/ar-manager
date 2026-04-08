@@ -159,10 +159,18 @@ export function useInvoices() {
       console.log('✅ Aspire sync completed:', result.message);
       
       await updateLastSyncTime();
-      
+
       alert(`✅ ${result.message}`);
 
-      await loadInvoiceDataFromSupabase();
+      const freshInvoices = await loadInvoiceDataFromSupabase();
+
+      // Auto-create monthly KPI snapshot using freshly synced data
+      try {
+        await createSnapshot(undefined, freshInvoices);
+        console.log('✅ Auto-created monthly KPI snapshot after sync');
+      } catch (snapErr) {
+        console.error('Failed to auto-create snapshot after sync:', snapErr);
+      }
 
     } catch (error: any) {
       console.error('❌ Aspire sync error:', error);
@@ -275,14 +283,16 @@ export function useInvoices() {
       }));
 
       console.log('✅ Successfully loaded', transformedData.length, 'invoices from Supabase');
-      
+
       await loadNotesForInvoices(transformedData);
-      
+
       setLoading(false);
+      return transformedData as Invoice[];
     } catch (error) {
       console.error('Caught error during load:', error);
       setInvoices([]);
       setLoading(false);
+      return [] as Invoice[];
     }
   };
 
@@ -429,14 +439,15 @@ export function useInvoices() {
     }
   };
 
-  const createSnapshot = async (snapshotDate?: string) => {
+  const createSnapshot = async (snapshotDate?: string, invoicesOverride?: Invoice[]) => {
     try {
       const date = snapshotDate || getLastDayOfMonth(new Date());
-      
+      const sourceInvoices = invoicesOverride ?? invoices;
+
       const regions: Array<'all' | 'phoenix' | 'las-vegas'> = ['all', 'phoenix', 'las-vegas'];
-      
+
       for (const region of regions) {
-        const regionInvoices = invoices.filter(inv => {
+        const regionInvoices = sourceInvoices.filter(inv => {
           if (region === 'phoenix') {
             const phoenixBranches = ['Phx - North', 'Phx - SouthWest', 'Phx - SouthEast', 'Corporate'];
             return phoenixBranches.includes(inv.branchName);

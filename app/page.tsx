@@ -311,8 +311,8 @@ export default function ARManagementApp() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header 
-        onSync={syncFromAspire} 
+      <Header
+        onSync={syncFromAspire}
         syncing={syncing}
         lastSyncTime={lastSyncTime}
       />
