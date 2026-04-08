@@ -12,7 +12,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 interface AspireInvoice {
   InvoiceID: number;
   InvoiceNumber: string;
+  CompanyID?: number;
   CompanyName: string;
+  PropertyID?: number;
   PropertyName?: string;
   BranchName: string;
   Amount: number;
@@ -35,6 +37,22 @@ interface AspireInvoice {
 interface Contact {
   ContactID: number;
   Email?: string;
+  FirstName?: string;
+  LastName?: string;
+}
+
+interface PropertyContact {
+  ContactID: number;
+  ContactName?: string;
+  PrimaryContact?: boolean | null;
+  BillingContact?: boolean | null;
+  CompanyID?: number;
+  CompanyName?: string;
+}
+
+interface AspireProperty {
+  PropertyID: number;
+  PropertyContacts?: PropertyContact[];
 }
 
 interface ProcessedInvoiceData {
@@ -112,7 +130,11 @@ export async function POST(request: Request) {
       });
     }
 
-    // Step 2: Enrich with contact emails
+    // Step 2a: Refresh primary/billing contact + company from each Property's current PropertyContacts
+    await enrichInvoicesWithPropertyContacts(invoices);
+    console.log(`Refreshed invoices with current property contacts`);
+
+    // Step 2b: Enrich with contact emails (and now names) from /Contacts
     const enrichedInvoices = await enrichInvoicesWithContactEmails(invoices);
     console.log(`Enriched invoices with contact emails`);
 
@@ -223,6 +245,107 @@ async function fetchInvoicesBatch(filter: string, pageSize: number): Promise<Asp
   }
 }
 
+async function enrichInvoicesWithPropertyContacts(invoices: AspireInvoice[]): Promise<void> {
+  if (!invoices || invoices.length === 0) return;
+
+  const propertyIds = Array.from(
+    new Set(invoices.map(inv => inv.PropertyID).filter((id): id is number => !!id))
+  );
+
+  if (propertyIds.length === 0) {
+    console.log('No PropertyIDs found on invoices — skipping property enrichment');
+    return;
+  }
+
+  console.log(`Fetching ${propertyIds.length} unique properties for current contact assignments...`);
+  const propertyMap = await fetchPropertiesByIds(propertyIds);
+  console.log(`Retrieved ${Object.keys(propertyMap).length} properties`);
+
+  let primaryOverrides = 0;
+  let billingOverrides = 0;
+  let companyOverrides = 0;
+
+  for (const invoice of invoices) {
+    if (!invoice.PropertyID) continue;
+    const property = propertyMap[invoice.PropertyID];
+    if (!property?.PropertyContacts?.length) continue;
+
+    const primary = property.PropertyContacts.find(pc => pc.PrimaryContact === true);
+    const billing = property.PropertyContacts.find(pc => pc.BillingContact === true);
+
+    if (primary?.ContactID) {
+      if (invoice.PrimaryContactID !== primary.ContactID) primaryOverrides++;
+      invoice.PrimaryContactID = primary.ContactID;
+      if (primary.ContactName) invoice.PrimaryContactName = primary.ContactName;
+      // Company is sourced from the primary contact's company
+      if (primary.CompanyName && invoice.CompanyName !== primary.CompanyName) {
+        companyOverrides++;
+        invoice.CompanyName = primary.CompanyName;
+      }
+      if (primary.CompanyID) invoice.CompanyID = primary.CompanyID;
+    }
+
+    if (billing?.ContactID) {
+      if (invoice.BillingContactID !== billing.ContactID) billingOverrides++;
+      invoice.BillingContactID = billing.ContactID;
+      if (billing.ContactName) invoice.BillingContactName = billing.ContactName;
+    }
+  }
+
+  console.log(`Property enrichment: ${primaryOverrides} primary contact changes, ${billingOverrides} billing contact changes, ${companyOverrides} company name changes`);
+}
+
+async function fetchPropertiesByIds(propertyIds: number[]): Promise<Record<number, AspireProperty>> {
+  const uniqueIds = Array.from(new Set(propertyIds.filter(id => id)));
+  const result: Record<number, AspireProperty> = {};
+  const batchSize = 20;
+
+  for (let i = 0; i < uniqueIds.length; i += batchSize) {
+    const batch = uniqueIds.slice(i, Math.min(i + batchSize, uniqueIds.length));
+    console.log(`Fetching property batch ${Math.floor(i / batchSize) + 1} (${batch.length} properties)...`);
+    const batchResults = await fetchPropertyBatch(batch);
+    Object.assign(result, batchResults);
+    if (i + batchSize < uniqueIds.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  return result;
+}
+
+async function fetchPropertyBatch(propertyIds: number[]): Promise<Record<number, AspireProperty>> {
+  if (!propertyIds || propertyIds.length === 0) return {};
+
+  try {
+    const filter = propertyIds.map(id => `PropertyID eq ${id}`).join(' or ');
+    const timestamp = new Date().getTime();
+    const url = `${VERCEL_PROXY_URL}?clientId=${encodeURIComponent(CLIENT_ID)}&secret=${encodeURIComponent(API_KEY)}&filter=${encodeURIComponent(filter)}&endpoint=/Properties&$top=${propertyIds.length}&_t=${timestamp}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      console.log(`Property batch fetch failed: ${response.status}`);
+      return {};
+    }
+
+    const data = await response.json();
+    const properties: AspireProperty[] = Array.isArray(data) ? data : (data.value || []);
+
+    const map: Record<number, AspireProperty> = {};
+    for (const p of properties) {
+      if (p.PropertyID) map[p.PropertyID] = p;
+    }
+    return map;
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching property batch:', errorMessage);
+    return {};
+  }
+}
+
 async function enrichInvoicesWithContactEmails(invoices: AspireInvoice[]): Promise<AspireInvoice[]> {
   if (!invoices || invoices.length === 0) {
     return invoices;
@@ -250,18 +373,27 @@ async function enrichInvoicesWithContactEmails(invoices: AspireInvoice[]): Promi
   const contactMap = await fetchContactsByIds(contactIds);
   console.log(`Retrieved ${Object.keys(contactMap).length} contacts`);
 
-  // Enrich each invoice
+  const buildName = (c: Contact): string => {
+    const parts = [c.FirstName, c.LastName].filter(Boolean) as string[];
+    return parts.join(' ').trim();
+  };
+
+  // Enrich each invoice with current email + name from /Contacts
   let enrichedCount = 0;
   for (const invoice of invoices) {
-    // Add billing contact email
     if (invoice.BillingContactID && contactMap[invoice.BillingContactID]) {
-      invoice.BillingContactEmail = contactMap[invoice.BillingContactID].Email || '';
+      const c = contactMap[invoice.BillingContactID];
+      invoice.BillingContactEmail = c.Email || '';
+      const name = buildName(c);
+      if (name) invoice.BillingContactName = name;
       if (invoice.BillingContactEmail) enrichedCount++;
     }
 
-    // Add primary contact email
     if (invoice.PrimaryContactID && contactMap[invoice.PrimaryContactID]) {
-      invoice.PrimaryContactEmail = contactMap[invoice.PrimaryContactID].Email || '';
+      const c = contactMap[invoice.PrimaryContactID];
+      invoice.PrimaryContactEmail = c.Email || '';
+      const name = buildName(c);
+      if (name) invoice.PrimaryContactName = name;
       if (invoice.PrimaryContactEmail) enrichedCount++;
     }
   }
