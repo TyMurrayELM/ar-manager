@@ -433,6 +433,7 @@ export default function KPIView({ snapshots, selectedRegion, onCreateSnapshot }:
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Count</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">% over 60 days</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">1-30</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">31-60</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">61-90</th>
@@ -441,13 +442,18 @@ export default function KPIView({ snapshots, selectedRegion, onCreateSnapshot }:
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {regionSnapshots.map((snapshot) => (
+              {regionSnapshots.map((snapshot) => {
+                const over60 = snapshot.aging_61_90 + snapshot.aging_91_120 + snapshot.aging_121_plus;
+                const pctOver60 = snapshot.total_outstanding > 0
+                  ? (over60 / snapshot.total_outstanding) * 100
+                  : 0;
+                return (
                 <tr key={snapshot.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                    {formatLocalDate(snapshot.snapshot_date, { 
-                      month: 'long', 
+                    {formatLocalDate(snapshot.snapshot_date, {
+                      month: 'long',
                       day: 'numeric',
-                      year: 'numeric' 
+                      year: 'numeric'
                     })}
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
@@ -455,6 +461,9 @@ export default function KPIView({ snapshots, selectedRegion, onCreateSnapshot }:
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-700">
                     {snapshot.invoice_count}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-700">
+                    {pctOver60.toFixed(1)}%
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-700">
                     {formatCurrency(snapshot.aging_1_30)}
@@ -472,7 +481,8 @@ export default function KPIView({ snapshots, selectedRegion, onCreateSnapshot }:
                     {formatCurrency(snapshot.aging_121_plus)}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
