@@ -442,12 +442,43 @@ export default function KPIView({ snapshots, selectedRegion, onCreateSnapshot }:
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {regionSnapshots.map((snapshot) => {
-                const over60 = snapshot.aging_61_90 + snapshot.aging_91_120 + snapshot.aging_121_plus;
-                const pctOver60 = snapshot.total_outstanding > 0
-                  ? (over60 / snapshot.total_outstanding) * 100
-                  : 0;
-                return (
+              {(() => {
+                const pctFor = (s: MonthlySnapshot) => {
+                  const over60 = s.aging_61_90 + s.aging_91_120 + s.aging_121_plus;
+                  return s.total_outstanding > 0 ? (over60 / s.total_outstanding) * 100 : 0;
+                };
+                // Group consecutive (desc-sorted) snapshots into calendar quarters
+                const groups: { key: string; label: string; snapshots: MonthlySnapshot[] }[] = [];
+                for (const snapshot of regionSnapshots) {
+                  const [year, month] = snapshot.snapshot_date.split('-').map(Number);
+                  const quarter = Math.ceil(month / 3);
+                  const key = `${year}-Q${quarter}`;
+                  const last = groups[groups.length - 1];
+                  if (last && last.key === key) {
+                    last.snapshots.push(snapshot);
+                  } else {
+                    groups.push({ key, label: `Q${quarter} ${year}`, snapshots: [snapshot] });
+                  }
+                }
+                return groups.map(group => {
+                  // Quarterly KPI = simple average of the month-end "% over 60" readings
+                  const avgPct = group.snapshots.reduce((sum, s) => sum + pctFor(s), 0) / group.snapshots.length;
+                  const partial = group.snapshots.length < 3;
+                  return [
+                    <tr key={group.key} className="bg-blue-50">
+                      <td className="px-4 py-3 text-sm font-semibold text-blue-900">
+                        {group.label} Average{partial ? ` (${group.snapshots.length} of 3 months)` : ''}
+                      </td>
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3 text-sm text-right font-semibold text-blue-900">
+                        {avgPct.toFixed(1)}%
+                      </td>
+                      <td className="px-4 py-3" colSpan={5} />
+                    </tr>,
+                    ...group.snapshots.map((snapshot) => {
+                      const pctOver60 = pctFor(snapshot);
+                      return (
                 <tr key={snapshot.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm text-gray-900 font-medium">
                     {formatLocalDate(snapshot.snapshot_date, {
@@ -481,8 +512,11 @@ export default function KPIView({ snapshots, selectedRegion, onCreateSnapshot }:
                     {formatCurrency(snapshot.aging_121_plus)}
                   </td>
                 </tr>
-                );
-              })}
+                      );
+                    }),
+                  ];
+                });
+              })()}
             </tbody>
           </table>
         </div>
